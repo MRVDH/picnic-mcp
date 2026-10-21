@@ -18,6 +18,23 @@ function mockPicnic() {
 
 let client: Client;
 
+/** A cart line that can't be delivered, with four replacements. */
+function unavailableLine(productId: string) {
+  return line({
+    productId,
+    isUnavailable: true,
+    unavailableReason: "Niet leverbaar op dit moment",
+    replacements: ["s2", "s3", "s4", "s5"].map((id, index) => ({
+      id,
+      name: `Vervanger ${index + 1}`,
+      imageId: "image-id",
+      displayPrice: 219,
+      unitQuantity: "500 gram",
+      maxCount: 50,
+    })),
+  });
+}
+
 async function connect(picnic: ReturnType<typeof mockPicnic>, onError = vi.fn()) {
   const server = createServer({ client: picnic as unknown as PicnicClient, onError });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -131,6 +148,49 @@ describe("createServer", () => {
     expect(picnic.cart.addProductToCart).toHaveBeenCalledWith("s1", 2);
     expect(result.added).toEqual({ productId: "s1", name: "Product s1", quantityInCart: 3 });
     expect(result.cart.itemCount).toBe(3);
+  });
+
+  it("lists why a cart line can't be delivered and its replacements, without images", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.getCart.mockResolvedValue(cart([unavailableLine("s1")]));
+    await connect(picnic);
+
+    const { text, json } = await call("get_cart");
+    expect(json().items[0]).toMatchObject({
+      productId: "s1",
+      unavailable: "Niet leverbaar op dit moment",
+      replacements: [
+        { productId: "s2", name: "Vervanger 1", size: "500 gram", price: "€ 2,19" },
+        { productId: "s3", name: "Vervanger 2", size: "500 gram", price: "€ 2,19" },
+        { productId: "s4", name: "Vervanger 3", size: "500 gram", price: "€ 2,19" },
+      ],
+    });
+    expect(text).not.toMatch(/image-id|s5/);
+  });
+
+  it("says when an added product can't be delivered", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.addProductToCart.mockResolvedValue(cart([unavailableLine("s1")]));
+    await connect(picnic);
+
+    const result = (await call("add_to_cart", { productId: "s1" })).json();
+    expect(result.next).toMatch(/can't be delivered/);
+    expect(result.added).toMatchObject({
+      productId: "s1",
+      quantityInCart: 1,
+      unavailable: "Niet leverbaar op dit moment",
+    });
+    expect(result.added.replacements).toHaveLength(3);
+  });
+
+  it("adds no hint when the added product can be delivered", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.addProductToCart.mockResolvedValue(cart([line({ productId: "s1" })]));
+    await connect(picnic);
+
+    const result = (await call("add_to_cart", { productId: "s1" })).json();
+    expect(result.next).toBeUndefined();
+    expect(result.added).toEqual({ productId: "s1", name: "Product s1", quantityInCart: 1 });
   });
 
   it("reports a product that wasn't added", async () => {

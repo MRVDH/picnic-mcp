@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 
-import { formatCart, formatCartSummary } from "../format/cart.js";
+import { formatCart, formatCartSummary, formatUnavailability } from "../format/cart.js";
 import type { Cart, CartLineItem } from "../types.js";
 import type { ToolContext } from "./context.js";
 import { errorResult, jsonResult, runTool } from "./result.js";
@@ -23,7 +23,8 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
     {
       title: "Get cart",
       description:
-        "Show the user's Picnic shopping cart: the products with their quantity and price, the total, and the delivery window.",
+        "Show the user's Picnic shopping cart: the products with their quantity and price, the total, and the delivery window. " +
+        "A product that can't be delivered in that window has `unavailable` with the reason, and `replacements` Picnic offers instead.",
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     () =>
@@ -36,7 +37,9 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
       title: "Add to cart",
       description:
         "Add a product to the user's Picnic shopping cart. Get the product id from search_products first. " +
-        "Returns the product with the quantity now in the cart, and the cart total. This does not place an order.",
+        "Returns the product with the quantity now in the cart, and the cart total. " +
+        "If the product can't be delivered in the selected delivery window, it says so and lists `replacements`: tell the user and offer them. " +
+        "This does not place an order.",
       inputSchema: z.object({ productId, quantity: quantity("add") }),
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
@@ -49,8 +52,17 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
             `Picnic did not add ${productId}. Check the product id with search_products.`
           );
         }
+        const unavailableLine = lines.find((line) => line.isUnavailable);
         return jsonResult({
-          added: { productId, name: lines[0].name, quantityInCart: quantityOf(lines) },
+          ...(unavailableLine && {
+            next: "The product is in the cart, but it can't be delivered in the selected delivery window. Tell the user, and offer the replacements if there are any.",
+          }),
+          added: {
+            productId,
+            name: lines[0].name,
+            quantityInCart: quantityOf(lines),
+            ...(unavailableLine && formatUnavailability(unavailableLine, countryCode)),
+          },
           cart: formatCartSummary(cart, countryCode),
         });
       }, onError)

@@ -12,7 +12,20 @@ export type CartLineOutput = {
   labels?: string[];
   /** Why the product can't be delivered, when it can't. */
   unavailable?: string;
+  /** Products Picnic offers instead, when the product can't be delivered. */
+  replacements?: ReplacementOutput[];
 };
+
+/** A product Picnic offers instead of one that can't be delivered. */
+export type ReplacementOutput = {
+  productId: string;
+  name: string;
+  size?: string;
+  price: string;
+};
+
+/** At most this many replacements per cart line. */
+const MAX_REPLACEMENTS = 3;
 
 /** The totals of the cart. */
 export type CartSummaryOutput = {
@@ -47,7 +60,28 @@ export function formatCartLine(item: CartLineItem, countryCode: CountryCode): Ca
     quantity: item.quantity,
     price: formatPrice(item.displayPrice, countryCode),
     ...(labels.length > 0 && { labels }),
-    ...(item.isUnavailable && { unavailable: item.unavailableReason ?? "not available" }),
+    ...formatUnavailability(item, countryCode),
+  };
+}
+
+/**
+ * Says why a cart line can't be delivered and what Picnic offers instead, or nothing when the line
+ * can be delivered.
+ */
+export function formatUnavailability(
+  item: CartLineItem,
+  countryCode: CountryCode
+): Pick<CartLineOutput, "unavailable" | "replacements"> {
+  if (!item.isUnavailable) return {};
+  const replacements = item.replacements.slice(0, MAX_REPLACEMENTS).map((replacement) => ({
+    productId: replacement.id,
+    name: replacement.name,
+    ...(replacement.unitQuantity && { size: replacement.unitQuantity }),
+    price: formatPrice(replacement.displayPrice, countryCode),
+  }));
+  return {
+    unavailable: item.unavailableReason ?? "not available",
+    ...(replacements.length > 0 && { replacements }),
   };
 }
 
