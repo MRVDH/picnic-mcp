@@ -62,11 +62,3 @@ await server.connect(transport);
 ```
 
 Pass `client` instead of `authKey` to use a picnic-api client you already have, and `onError` to handle errors from Picnic yourself (by default they're logged to stderr).
-
-## Requests
-
-A cart tool sends one request to Picnic, a search two (a few more on the first search, to load the search page's code). Picnic blocks a client for a few minutes after a few hundred requests in quick succession; the tools then return a message saying so.
-
-## License
-
-MIT
