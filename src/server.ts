@@ -1,0 +1,61 @@
+import { McpServer } from "@modelcontextprotocol/server";
+import { createRequire } from "node:module";
+import PicnicClient from "picnic-api";
+
+import { registerCartTools } from "./tools/cart.js";
+import { SEARCH_LANGUAGES, type ToolContext } from "./tools/context.js";
+import { registerSearchProducts } from "./tools/search-products.js";
+import type { CountryCode } from "./types.js";
+
+const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
+
+export type CreateServerOptions = (
+  | {
+      /** The Picnic auth key of the account, from `picnic-mcp login`. */
+      authKey: string;
+      /** The country of the account. Default: "NL". */
+      countryCode?: CountryCode;
+    }
+  | {
+      /** A picnic-api client that is already signed in. */
+      client: PicnicClient;
+      /** The country of the client's account. Default: "NL". */
+      countryCode?: CountryCode;
+    }
+) & {
+  /** Called with errors from Picnic before the tool returns a short message. Default: log to stderr. */
+  onError?: (error: unknown) => void;
+};
+
+/**
+ * Creates an MCP server with tools to search Picnic's products and change the cart. It reads no
+ * environment variables or files, so it can run in-process: connect it to a transport with
+ * `server.connect(transport)`.
+ */
+export function createServer(options: CreateServerOptions): McpServer {
+  const countryCode = options.countryCode ?? "NL";
+  const context: ToolContext = {
+    client:
+      "client" in options
+        ? options.client
+        : new PicnicClient({ authKey: options.authKey, countryCode }),
+    countryCode,
+    onError: options.onError ?? ((error) => console.error("[picnic-mcp]", error)),
+  };
+
+  const server = new McpServer(
+    { name: "picnic-mcp", version },
+    {
+      capabilities: { tools: {} },
+      instructions:
+        "Tools for the user's account at the online supermarket Picnic. " +
+        "To add a product: search_products (query in " +
+        SEARCH_LANGUAGES[countryCode] +
+        "), then add_to_cart with the product id. If the search returns choices, ask the user first. " +
+        "These tools can change the cart but cannot place an order.",
+    }
+  );
+  registerSearchProducts(server, context);
+  registerCartTools(server, context);
+  return server;
+}
