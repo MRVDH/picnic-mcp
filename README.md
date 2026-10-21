@@ -9,9 +9,9 @@ Unofficial: not made or supported by Picnic. Built on [picnic-api](https://githu
 | Tool               | What it does                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `search_products`  | Searches products. Returns a `bestMatch` when one product fits (usually one you bought before), or 2 or 3 `choices` to ask you about. |
-| `add_to_cart`      | Adds a product by its id. Returns the quantity in the cart and the cart total.                                                        |
+| `add_to_cart`      | Adds a product by its id. Returns the quantity in the cart and the cart total, and replacements when the product can't be delivered.  |
 | `remove_from_cart` | Removes a product by its id.                                                                                                          |
-| `get_cart`         | Shows the cart: products, quantities, prices, total and delivery window.                                                              |
+| `get_cart`         | Shows the cart: products, quantities, prices, total and delivery window, and replacements for products that can't be delivered.       |
 
 Output is compact JSON with only what a model needs. It contains products, prices and your cart, but not your name, address or other account details. Keep in mind that whatever the tools return is sent to the model your MCP client uses.
 
