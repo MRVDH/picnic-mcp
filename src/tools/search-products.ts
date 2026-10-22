@@ -4,7 +4,7 @@ import * as z from "zod";
 import { formatProduct } from "../format/products.js";
 import type { Candidate } from "../format/products.js";
 import { listCandidates, matchProducts } from "../match.js";
-import { SEARCH_LANGUAGES, type ToolContext } from "./context.js";
+import { SEARCH_LANGUAGES, type ToolContext, imageUrls } from "./context.js";
 import { jsonResult, runTool } from "./result.js";
 
 /** At most this many products in the output, to keep it short. */
@@ -37,30 +37,48 @@ export function registerSearchProducts(server: McpServer, context: ToolContext):
             ? { searchedFor: results.correctedQuery }
             : {};
 
+        const images = (shown: Candidate[]) =>
+          imageUrls(
+            context,
+            shown.map(({ tile }) => ({ productId: tile.id, imageId: tile.imageId }))
+          );
+
         if (match.type === "best") {
-          return jsonResult({
-            ...corrected,
-            next: "Add bestMatch with add_to_cart, unless the user asked for something else.",
-            bestMatch: formatProduct(match.best, context.countryCode),
-            otherResults: format(match.others.slice(0, MAX_PRODUCTS - 1)),
-          });
+          const others = match.others.slice(0, MAX_PRODUCTS - 1);
+          return jsonResult(
+            {
+              ...corrected,
+              next: "Add bestMatch with add_to_cart, unless the user asked for something else.",
+              bestMatch: formatProduct(match.best, context.countryCode),
+              otherResults: format(others),
+            },
+            images([match.best, ...others])
+          );
         }
         if (match.type === "choose") {
-          return jsonResult({
-            ...corrected,
-            next: "No clear match. Ask the user which of the choices they want, then add it with add_to_cart.",
-            choices: format(match.choices),
-            otherResults: format(match.others.slice(0, MAX_PRODUCTS - match.choices.length)),
-          });
+          const others = match.others.slice(0, MAX_PRODUCTS - match.choices.length);
+          return jsonResult(
+            {
+              ...corrected,
+              next: "No clear match. Ask the user which of the choices they want, then add it with add_to_cart.",
+              choices: format(match.choices),
+              otherResults: format(others),
+            },
+            images([...match.choices, ...others])
+          );
         }
-        return jsonResult({
-          ...corrected,
-          next:
-            match.others.length > 0
-              ? "None of the results can be ordered right now. Tell the user, or try another search term."
-              : "Nothing found. Try another search term, or tell the user.",
-          otherResults: format(match.others.slice(0, MAX_PRODUCTS)),
-        });
+        const others = match.others.slice(0, MAX_PRODUCTS);
+        return jsonResult(
+          {
+            ...corrected,
+            next:
+              others.length > 0
+                ? "None of the results can be ordered right now. Tell the user, or try another search term."
+                : "Nothing found. Try another search term, or tell the user.",
+            otherResults: format(others),
+          },
+          images(others)
+        );
       }, context.onError)
   );
 }

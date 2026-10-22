@@ -269,3 +269,60 @@ describe("createServer", () => {
     expect((await call("search_products", { query: "melk" })).text).toMatch(/rate limiting/);
   });
 });
+
+describe("product images", () => {
+  it("puts the image URLs of the listed products in _meta, not in the text", async () => {
+    const picnic = mockPicnic();
+    picnic.catalog.getSearchResults.mockResolvedValue(
+      searchResults(
+        [],
+        [
+          tile({ id: "s1", imageId: "img-1" }),
+          tile({ id: "s2", imageId: null }),
+          tile({ id: "s3", imageId: "img-3" }),
+        ]
+      )
+    );
+    await connect(picnic);
+
+    const result = await call("search_products", { query: "melk" });
+    expect(result.images()).toEqual({
+      s1: "https://images.example.com/img-1.png",
+      s3: "https://images.example.com/img-3.png",
+    });
+    expect(picnic.catalog.getImageUrl).toHaveBeenCalledWith("img-1", "large");
+    expect(result.text).not.toMatch(/example\.com|img-/);
+  });
+
+  it("gives the images of the cart lines and their replacements", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.getCart.mockResolvedValue(
+      cart([
+        line({ productId: "s9", imageId: "img-9" }),
+        { ...unavailableLine("s1"), imageId: "img-1" },
+      ])
+    );
+    picnic.cart.getReplacements.mockImplementation(async (id: string) => replacementsOf(id));
+    await connect(picnic);
+
+    expect((await call("get_cart")).images()).toEqual({
+      s9: "https://images.example.com/img-9.png",
+      s1: "https://images.example.com/img-1.png",
+      s2: "https://images.example.com/image-id.png",
+      s4: "https://images.example.com/image-id.png",
+      s5: "https://images.example.com/image-id.png",
+    });
+  });
+
+  it("gives the image of an added product", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.addProductToCart.mockResolvedValue(
+      cart([line({ productId: "s1", imageId: "img-1" })])
+    );
+    await connect(picnic);
+
+    expect((await call("add_to_cart", { productId: "s1" })).images()).toEqual({
+      s1: "https://images.example.com/img-1.png",
+    });
+  });
+});

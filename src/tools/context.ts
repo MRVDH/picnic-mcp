@@ -15,3 +15,15 @@ export const SEARCH_LANGUAGES: Record<CountryCode, string> = {
   DE: "German",
   FR: "French",
 };
+
+/** The image URLs of products, by product id, leaving out products without an image. */
+export function imageUrls(
+  { client }: ToolContext,
+  products: Iterable<{ productId: string; imageId: string | null }>
+): Record<string, string> {
+  const urls: Record<string, string> = {};
+  for (const { productId, imageId } of products) {
+    if (imageId) urls[productId] = client.catalog.getImageUrl(imageId, "large");
+  }
+  return urls;
+}

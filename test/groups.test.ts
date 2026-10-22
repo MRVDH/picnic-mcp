@@ -194,6 +194,7 @@ describe("product", () => {
     picnic.catalog.getProduct.mockResolvedValue({
       id: "s1",
       name: "Toiletpapier",
+      imageIds: [],
       brand: null,
       unitQuantity: "9 rollen",
       unitPrice: null,

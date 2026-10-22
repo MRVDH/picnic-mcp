@@ -7,7 +7,11 @@ import { type CreateServerOptions, createServer } from "../src/index.js";
 /** A picnic-api client with every method the tools call mocked. */
 export function mockPicnic() {
   return {
-    catalog: { getSearchResults: vi.fn(), getProduct: vi.fn() },
+    catalog: {
+      getSearchResults: vi.fn(),
+      getProduct: vi.fn(),
+      getImageUrl: vi.fn((imageId: string) => `https://images.example.com/${imageId}.png`),
+    },
     cart: {
       getCart: vi.fn(),
       addProductToCart: vi.fn(),
@@ -52,5 +56,11 @@ export async function call(name: string, args: Record<string, unknown> = {}) {
   if (!client) throw new Error("Call connect() first");
   const result = await client.callTool({ name, arguments: args });
   const text = (result.content as { type: string; text: string }[])[0].text;
-  return { isError: result.isError ?? false, text, json: () => JSON.parse(text) };
+  return {
+    isError: result.isError ?? false,
+    text,
+    json: () => JSON.parse(text),
+    /** The image URLs the result carries in `_meta`, by product id. */
+    images: () => (result._meta as Record<string, unknown> | undefined)?.["picnic-mcp/images"],
+  };
 }
