@@ -26,19 +26,26 @@ export type SlotDayOutput = {
   slots: SlotOutput[];
 };
 
-/** Groups the available slots by day, in Picnic's order. */
+/**
+ * Groups the available slots by day, in Picnic's order. The selected slot is marked, also when
+ * Picnic preselected it: the slot list only flags a slot the user picked.
+ */
 export function slotDays(slots: DeliverySlots, countryCode: CountryCode): SlotDayOutput[] {
+  const selectedId = slots.selectedSlot?.slotId ?? null;
   const byDate = new Map<string, DeliverySlot[]>();
   for (const slot of slots.slots.filter((slot) => slot.isAvailable)) {
     const date = formatDate(slot.windowStart);
     byDate.set(date, [...(byDate.get(date) ?? []), slot]);
   }
-  return [...byDate].map(([date, daySlots]) => formatSlotDay(date, daySlots, countryCode));
+  return [...byDate].map(([date, daySlots]) =>
+    formatSlotDay(date, daySlots, selectedId, countryCode)
+  );
 }
 
 function formatSlotDay(
   date: string,
   slots: DeliverySlot[],
+  selectedId: string | null,
   countryCode: CountryCode
 ): SlotDayOutput {
   const orderBefore = shared(slots.map((slot) => formatDateTime(slot.cutOffTime)));
@@ -61,7 +68,7 @@ function formatSlotDay(
         ...(!orderBefore && { orderBefore: formatDateTime(slot.cutOffTime) }),
         ...(!minimum && minimumOrder && { minimumOrder }),
         ...(slot.isGreenChoice && { greenChoice: true }),
-        ...(slot.isSelected && { selected: true }),
+        ...((slot.isSelected || slot.slotId === selectedId) && { selected: true }),
       };
     }),
   };

@@ -101,6 +101,27 @@ describe("slots", () => {
     expect(empty.otherDays).toHaveLength(3);
   });
 
+  it("marks the slot Picnic preselected", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.getDeliverySlots.mockResolvedValue({
+      slots: slots.slots.map((s) => ({ ...s, isSelected: false })),
+      selectedSlot: {
+        ...slots.selectedSlot,
+        slotId: "a1",
+        state: "IMPLICIT",
+        isExplicitSelection: false,
+      },
+    });
+    await connect(picnic);
+
+    const [day] = (await call("get_delivery_slots")).json().days;
+    expect(
+      day.slots
+        .filter((s: { selected?: true }) => s.selected)
+        .map((s: { slotId: string }) => s.slotId)
+    ).toEqual(["a1"]);
+  });
+
   it("selects a slot and checks Picnic selected it", async () => {
     const picnic = mockPicnic();
     picnic.cart.setDeliverySlot.mockResolvedValue(
