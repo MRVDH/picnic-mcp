@@ -3,7 +3,7 @@ import * as z from "zod";
 
 import { formatCart, formatCartSummary, formatUnavailability } from "../format/cart.js";
 import type { Cart, CartLineItem } from "../types.js";
-import type { ToolContext } from "./context.js";
+import { type ToolContext, imageUrls } from "./context.js";
 import { productId, quantity } from "./inputs.js";
 import { loadReplacements } from "./replacements.js";
 import { errorResult, jsonResult, runTool } from "./result.js";
@@ -23,7 +23,11 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
     () =>
       runTool(async () => {
         const cart = await client.cart.getCart();
-        return jsonResult(formatCart(cart, countryCode, await loadReplacements(context, cart)));
+        const replacements = await loadReplacements(context, cart);
+        return jsonResult(formatCart(cart, countryCode, replacements.byProduct), {
+          ...imageUrls(context, cart.items),
+          ...replacements.images,
+        });
       }, onError)
   );
 
@@ -50,20 +54,24 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
         }
         const unavailableLine = lines.find((line) => line.isUnavailable);
         const replacements = unavailableLine
-          ? (await loadReplacements(context, cart, [productId])).get(productId)
+          ? await loadReplacements(context, cart, [productId])
           : undefined;
-        return jsonResult({
-          ...(unavailableLine && {
-            next: "The product is in the cart, but it can't be delivered in the selected delivery window. Tell the user, and offer the replacements if there are any.",
-          }),
-          added: {
-            productId,
-            name: lines[0].name,
-            quantityInCart: quantityOf(lines),
-            ...(unavailableLine && formatUnavailability(unavailableLine, replacements)),
+        return jsonResult(
+          {
+            ...(unavailableLine && {
+              next: "The product is in the cart, but it can't be delivered in the selected delivery window. Tell the user, and offer the replacements if there are any.",
+            }),
+            added: {
+              productId,
+              name: lines[0].name,
+              quantityInCart: quantityOf(lines),
+              ...(unavailableLine &&
+                formatUnavailability(unavailableLine, replacements?.byProduct.get(productId))),
+            },
+            cart: formatCartSummary(cart, countryCode),
           },
-          cart: formatCartSummary(cart, countryCode),
-        });
+          { ...imageUrls(context, lines.slice(0, 1)), ...replacements?.images }
+        );
       }, onError)
   );
 

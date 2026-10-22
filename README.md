@@ -72,3 +72,7 @@ await server.connect(transport);
 ```
 
 Pass `tools` to choose the tool groups (e.g. `tools: ["cart", "recipes"]`), `client` instead of `authKey` to use a picnic-api client you already have, and `onError` to handle errors from Picnic yourself (by default they're logged to stderr).
+
+### Product images
+
+Results that list products (search, the cart, an added product, product details) carry the image URLs of those products in `_meta["picnic-mcp/images"]`, by product id. MCP clients don't pass `_meta` to the model, so the images cost no tokens; your own code can use them, e.g. to show product photos. The images don't need the auth key. The key is exported as `IMAGES_META_KEY`.

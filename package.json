@@ -1,6 +1,6 @@
 {
   "name": "picnic-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server for the online supermarket Picnic: search products and manage the cart",
   "keywords": [
     "picnic",
@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.3.1",
-    "picnic-api": "^5.1.0",
+    "picnic-api": "^5.2.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

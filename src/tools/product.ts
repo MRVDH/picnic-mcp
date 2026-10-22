@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 
 import { formatProductDetails } from "../format/product.js";
-import type { ToolContext } from "./context.js";
+import { type ToolContext, imageUrls } from "./context.js";
 import { productId } from "./inputs.js";
 import { jsonResult, runTool } from "./result.js";
 
@@ -20,10 +20,12 @@ export function registerProductTools(server: McpServer, context: ToolContext): v
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     ({ productId }) =>
-      runTool(
-        async () =>
-          jsonResult(formatProductDetails(await client.catalog.getProduct(productId), countryCode)),
-        onError
-      )
+      runTool(async () => {
+        const product = await client.catalog.getProduct(productId);
+        return jsonResult(
+          formatProductDetails(product, countryCode),
+          imageUrls(context, [{ productId: product.id, imageId: product.imageIds[0] ?? null }])
+        );
+      }, onError)
   );
 }
