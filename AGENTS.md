@@ -1,8 +1,9 @@
 # Agent Instructions
 
 picnic-mcp is an MCP server for the online supermarket Picnic, built on
-[picnic-api](https://github.com/MRVDH/picnic-api). It lets a model search products and change the
-cart. It never places an order.
+[picnic-api](https://github.com/MRVDH/picnic-api). It lets a model search products, change the cart,
+pick a delivery slot, read product details, follow deliveries and use recipes. It never places an
+order.
 
 ## Structure
 
@@ -14,7 +15,7 @@ src/
   types.ts          # CountryCode and aliases for picnic-api's models
   match.ts          # picks a best match or choices from search results
   errors.ts         # picnic-api errors -> short messages for the model
-  tools/            # one file per tool group: schema, description, handler
+  tools/            # groups.ts lists the tool groups; one file per group: schemas, descriptions, handlers
   format/           # model-facing output, built from an allow-list of fields
 test/               # vitest, with made-up fixtures
 ```
@@ -30,6 +31,12 @@ test/               # vitest, with made-up fixtures
   code, docs or tool descriptions.
 
 ## Tools
+
+- Every tool belongs to a group in `src/tools/groups.ts`. A group is on by default only when its
+  tools are read-only or part of the cart flow; others are opt-in. Keep the default list short:
+  weaker models pick tools worse as the list grows.
+- Never add checkout, payment, wallet, cancelling or rating deliveries, invoices, account settings,
+  consent or customer service.
 
 - Write names, descriptions and output for models that are weak at tool use: one job per tool, a
   description that says when to use it and what comes back, and input that rejects obvious mistakes
@@ -53,6 +60,10 @@ The repo is public, including its history and pull requests.
 
 - Tool output leaves out the account's name, address, email, phone number, order numbers and other
   account details. The cart id and timestamp stay out too.
+- Deliveries: no delivery or order ids, payment details, driver name or photo, address or
+  coordinates. So `get_deliveries` uses the delivery position (for the arrival time), never the
+  route or tracking methods.
+- Recipes: the user's own note on a recipe stays out.
 - Never copy real account data into code, tests, fixtures, commit messages or pull requests. Use
   made-up products and placeholders, and describe live tests in general terms.
 

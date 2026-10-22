@@ -2,9 +2,13 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { createRequire } from "node:module";
 import PicnicClient from "picnic-api";
 
-import { registerCartTools } from "./tools/cart.js";
-import { SEARCH_LANGUAGES, type ToolContext } from "./tools/context.js";
-import { registerSearchProducts } from "./tools/search-products.js";
+import type { ToolContext } from "./tools/context.js";
+import {
+  DEFAULT_TOOL_GROUPS,
+  type ToolGroup,
+  registerToolGroups,
+  toolGroupInstructions,
+} from "./tools/groups.js";
 import type { CountryCode } from "./types.js";
 
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
@@ -23,17 +27,20 @@ export type CreateServerOptions = (
       countryCode?: CountryCode;
     }
 ) & {
+  /** The tool groups to turn on. Default: `["cart", "slots", "product"]`. */
+  tools?: readonly ToolGroup[];
   /** Called with errors from Picnic before the tool returns a short message. Default: log to stderr. */
   onError?: (error: unknown) => void;
 };
 
 /**
- * Creates an MCP server with tools to search Picnic's products and change the cart. It reads no
- * environment variables or files, so it can run in-process: connect it to a transport with
- * `server.connect(transport)`.
+ * Creates an MCP server with tools to search Picnic's products and change the cart, plus the
+ * other tool groups that are turned on. It reads no environment variables or files, so it can run
+ * in-process: connect it to a transport with `server.connect(transport)`.
  */
 export function createServer(options: CreateServerOptions): McpServer {
   const countryCode = options.countryCode ?? "NL";
+  const groups = options.tools ?? DEFAULT_TOOL_GROUPS;
   const context: ToolContext = {
     client:
       "client" in options
@@ -49,13 +56,10 @@ export function createServer(options: CreateServerOptions): McpServer {
       capabilities: { tools: {} },
       instructions:
         "Tools for the user's account at the online supermarket Picnic. " +
-        "To add a product: search_products (query in " +
-        SEARCH_LANGUAGES[countryCode] +
-        "), then add_to_cart with the product id. If the search returns choices, ask the user first. " +
-        "These tools can change the cart but cannot place an order.",
+        toolGroupInstructions(context, groups) +
+        " These tools can change the cart but cannot place an order.",
     }
   );
-  registerSearchProducts(server, context);
-  registerCartTools(server, context);
+  registerToolGroups(server, context, groups);
   return server;
 }

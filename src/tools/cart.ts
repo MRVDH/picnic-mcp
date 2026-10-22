@@ -4,16 +4,8 @@ import * as z from "zod";
 import { formatCart, formatCartSummary, formatUnavailability } from "../format/cart.js";
 import type { Cart, CartLineItem } from "../types.js";
 import type { ToolContext } from "./context.js";
+import { productId, quantity } from "./inputs.js";
 import { errorResult, jsonResult, runTool } from "./result.js";
-
-const productId = z
-  .string()
-  .trim()
-  .regex(/^s\d+$/, "Use a product id from search_products or get_cart, e.g. s1004201.")
-  .describe("The product id from search_products or get_cart, e.g. s1004201.");
-
-const quantity = (what: string) =>
-  z.number().int().min(1).max(50).default(1).describe(`How many to ${what}. Default 1.`);
 
 export function registerCartTools(server: McpServer, context: ToolContext): void {
   const { client, countryCode, onError } = context;

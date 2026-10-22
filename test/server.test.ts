@@ -1,22 +1,8 @@
-import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import PicnicClient from "picnic-api";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { createServer } from "../src/index.js";
 import { cart, line, searchResults, tile } from "./fixtures.js";
-
-function mockPicnic() {
-  return {
-    catalog: { getSearchResults: vi.fn() },
-    cart: {
-      getCart: vi.fn(),
-      addProductToCart: vi.fn(),
-      removeProductFromCart: vi.fn(),
-    },
-  };
-}
-
-let client: Client;
+import { call, connect, mockPicnic } from "./helpers.js";
 
 /** A cart line that can't be delivered, with four replacements. */
 function unavailableLine(productId: string) {
@@ -35,37 +21,38 @@ function unavailableLine(productId: string) {
   });
 }
 
-async function connect(picnic: ReturnType<typeof mockPicnic>, onError = vi.fn()) {
-  const server = createServer({ client: picnic as unknown as PicnicClient, onError });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverTransport);
-  client = new Client({ name: "test", version: "1.0.0" });
-  await client.connect(clientTransport);
-  return client;
-}
-
-async function call(name: string, args: Record<string, unknown> = {}) {
-  const result = await client.callTool({ name, arguments: args });
-  const text = (result.content as { type: string; text: string }[])[0].text;
-  return { isError: result.isError ?? false, text, json: () => JSON.parse(text) };
-}
-
-afterEach(async () => {
-  await client?.close();
-});
-
 describe("createServer", () => {
-  it("lists the four tools, with the read-only ones marked", async () => {
-    await connect(mockPicnic());
+  it("lists the default tools, with the read-only ones marked", async () => {
+    const client = await connect(mockPicnic());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       "add_to_cart",
       "get_cart",
+      "get_delivery_slots",
+      "get_product",
       "remove_from_cart",
       "search_products",
+      "select_delivery_slot",
     ]);
     const readOnly = tools.filter((t) => t.annotations?.readOnlyHint).map((t) => t.name);
-    expect(readOnly.sort()).toEqual(["get_cart", "search_products"]);
+    expect(readOnly.sort()).toEqual([
+      "get_cart",
+      "get_delivery_slots",
+      "get_product",
+      "search_products",
+    ]);
+  });
+
+  it("lists only the tools of the groups that are turned on", async () => {
+    const client = await connect(mockPicnic(), { tools: ["deliveries", "recipes"] });
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "add_recipe_to_cart",
+      "get_deliveries",
+      "get_recipe",
+      "remove_recipe_from_cart",
+      "search_recipes",
+    ]);
   });
 
   it("returns the best match with a short product", async () => {
@@ -229,7 +216,7 @@ describe("createServer", () => {
       new PicnicClient.PicnicApiError(401, "Unauthorized", '{"error":{"code":"AUTH_ERROR"}}')
     );
     const onError = vi.fn();
-    await connect(picnic, onError);
+    await connect(picnic, { onError });
 
     const result = await call("get_cart");
     expect(result.isError).toBe(true);

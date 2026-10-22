@@ -5,11 +5,16 @@ import { Writable } from "node:stream";
 import PicnicClient from "picnic-api";
 
 import { createServer } from "./server.js";
+import { DEFAULT_TOOL_GROUPS, TOOL_GROUPS, parseToolGroups } from "./tools/groups.js";
 import { COUNTRY_CODES, type CountryCode } from "./types.js";
 
 const USAGE = `Usage:
-  picnic-mcp          Serve the MCP server over stdio. Reads PICNIC_AUTH_KEY and
-                      PICNIC_COUNTRY_CODE (NL, DE or FR; default NL).
+  picnic-mcp          Serve the MCP server over stdio. Reads:
+                        PICNIC_AUTH_KEY      the auth key (required)
+                        PICNIC_COUNTRY_CODE  NL, DE or FR (default NL)
+                        PICNIC_MCP_TOOLS     tool groups, comma-separated, from
+                                             ${TOOL_GROUPS.join(", ")}
+                                             (default ${DEFAULT_TOOL_GROUPS.join(",")})
   picnic-mcp login    Sign in to Picnic and print an auth key for PICNIC_AUTH_KEY.`;
 
 function parseCountryCode(value: string | undefined): CountryCode {
@@ -29,7 +34,9 @@ async function serve(): Promise<void> {
     process.exit(1);
   }
   const countryCode = parseCountryCode(process.env.PICNIC_COUNTRY_CODE);
-  serveStdio(() => createServer({ authKey, countryCode }));
+  const toolsEnv = process.env.PICNIC_MCP_TOOLS?.trim();
+  const tools = toolsEnv ? parseToolGroups(toolsEnv) : DEFAULT_TOOL_GROUPS;
+  serveStdio(() => createServer({ authKey, countryCode, tools }));
 }
 
 /** Asks for the login details on the terminal and prints the auth key. Stores nothing. */
