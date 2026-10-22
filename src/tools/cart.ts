@@ -4,16 +4,9 @@ import * as z from "zod";
 import { formatCart, formatCartSummary, formatUnavailability } from "../format/cart.js";
 import type { Cart, CartLineItem } from "../types.js";
 import type { ToolContext } from "./context.js";
+import { productId, quantity } from "./inputs.js";
+import { loadReplacements } from "./replacements.js";
 import { errorResult, jsonResult, runTool } from "./result.js";
-
-const productId = z
-  .string()
-  .trim()
-  .regex(/^s\d+$/, "Use a product id from search_products or get_cart, e.g. s1004201.")
-  .describe("The product id from search_products or get_cart, e.g. s1004201.");
-
-const quantity = (what: string) =>
-  z.number().int().min(1).max(50).default(1).describe(`How many to ${what}. Default 1.`);
 
 export function registerCartTools(server: McpServer, context: ToolContext): void {
   const { client, countryCode, onError } = context;
@@ -28,7 +21,10 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     () =>
-      runTool(async () => jsonResult(formatCart(await client.cart.getCart(), countryCode)), onError)
+      runTool(async () => {
+        const cart = await client.cart.getCart();
+        return jsonResult(formatCart(cart, countryCode, await loadReplacements(context, cart)));
+      }, onError)
   );
 
   server.registerTool(
@@ -53,6 +49,9 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
           );
         }
         const unavailableLine = lines.find((line) => line.isUnavailable);
+        const replacements = unavailableLine
+          ? (await loadReplacements(context, cart, [productId])).get(productId)
+          : undefined;
         return jsonResult({
           ...(unavailableLine && {
             next: "The product is in the cart, but it can't be delivered in the selected delivery window. Tell the user, and offer the replacements if there are any.",
@@ -61,7 +60,7 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
             productId,
             name: lines[0].name,
             quantityInCart: quantityOf(lines),
-            ...(unavailableLine && formatUnavailability(unavailableLine, countryCode)),
+            ...(unavailableLine && formatUnavailability(unavailableLine, replacements)),
           },
           cart: formatCartSummary(cart, countryCode),
         });

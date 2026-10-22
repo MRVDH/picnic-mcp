@@ -1,71 +1,73 @@
-import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import PicnicClient from "picnic-api";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { createServer } from "../src/index.js";
 import { cart, line, searchResults, tile } from "./fixtures.js";
+import { call, connect, mockPicnic } from "./helpers.js";
 
-function mockPicnic() {
-  return {
-    catalog: { getSearchResults: vi.fn() },
-    cart: {
-      getCart: vi.fn(),
-      addProductToCart: vi.fn(),
-      removeProductFromCart: vi.fn(),
-    },
-  };
-}
-
-let client: Client;
-
-/** A cart line that can't be delivered, with four replacements. */
+/** A cart line that can't be delivered, with the placeholder replacements the cart response has. */
 function unavailableLine(productId: string) {
   return line({
     productId,
     isUnavailable: true,
     unavailableReason: "Niet leverbaar op dit moment",
-    replacements: ["s2", "s3", "s4", "s5"].map((id, index) => ({
+    replacements: ["s2", "s3"].map((id) => ({
       id,
-      name: `Vervanger ${index + 1}`,
+      name: "irrelevant",
       imageId: "image-id",
-      displayPrice: 219,
-      unitQuantity: "500 gram",
-      maxCount: 50,
+      displayPrice: 0,
+      unitQuantity: "",
+      maxCount: 99,
     })),
   });
 }
 
-async function connect(picnic: ReturnType<typeof mockPicnic>, onError = vi.fn()) {
-  const server = createServer({ client: picnic as unknown as PicnicClient, onError });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverTransport);
-  client = new Client({ name: "test", version: "1.0.0" });
-  await client.connect(clientTransport);
-  return client;
+/** What cart.getReplacements returns for a product: four replacements, one unavailable. */
+function replacementsOf(productId: string) {
+  return {
+    productId,
+    reason: "TEMPORARILY_UNAVAILABLE",
+    replacements: [
+      tile({ id: "s2", name: "Vervanger 1", displayPrice: 219, unitQuantity: "500 gram" }),
+      tile({ id: "s3", name: "Vervanger 2", isUnavailable: true }),
+      tile({ id: "s4", name: "Vervanger 3", displayPrice: 179, originalPrice: 199 }),
+      tile({ id: "s5", name: "Vervanger 4" }),
+      tile({ id: "s6", name: "Vervanger 5" }),
+    ],
+  };
 }
-
-async function call(name: string, args: Record<string, unknown> = {}) {
-  const result = await client.callTool({ name, arguments: args });
-  const text = (result.content as { type: string; text: string }[])[0].text;
-  return { isError: result.isError ?? false, text, json: () => JSON.parse(text) };
-}
-
-afterEach(async () => {
-  await client?.close();
-});
 
 describe("createServer", () => {
-  it("lists the four tools, with the read-only ones marked", async () => {
-    await connect(mockPicnic());
+  it("lists the default tools, with the read-only ones marked", async () => {
+    const client = await connect(mockPicnic());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       "add_to_cart",
       "get_cart",
+      "get_delivery_slots",
+      "get_product",
       "remove_from_cart",
       "search_products",
+      "select_delivery_slot",
     ]);
     const readOnly = tools.filter((t) => t.annotations?.readOnlyHint).map((t) => t.name);
-    expect(readOnly.sort()).toEqual(["get_cart", "search_products"]);
+    expect(readOnly.sort()).toEqual([
+      "get_cart",
+      "get_delivery_slots",
+      "get_product",
+      "search_products",
+    ]);
+  });
+
+  it("lists only the tools of the groups that are turned on", async () => {
+    const client = await connect(mockPicnic(), { tools: ["deliveries", "recipes"] });
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "add_recipe_to_cart",
+      "get_deliveries",
+      "get_recipe",
+      "remove_recipe_from_cart",
+      "search_recipes",
+    ]);
   });
 
   it("returns the best match with a short product", async () => {
@@ -150,27 +152,46 @@ describe("createServer", () => {
     expect(result.cart.itemCount).toBe(3);
   });
 
-  it("lists why a cart line can't be delivered and its replacements, without images", async () => {
+  it("lists why a cart line can't be delivered and the replacements from Picnic's page", async () => {
     const picnic = mockPicnic();
-    picnic.cart.getCart.mockResolvedValue(cart([unavailableLine("s1")]));
+    picnic.cart.getCart.mockResolvedValue(cart([unavailableLine("s1"), line({ productId: "s9" })]));
+    picnic.cart.getReplacements.mockImplementation(async (id: string) => replacementsOf(id));
     await connect(picnic);
 
     const { text, json } = await call("get_cart");
+    expect(picnic.cart.getReplacements).toHaveBeenCalledTimes(1);
+    expect(picnic.cart.getReplacements).toHaveBeenCalledWith("s1");
     expect(json().items[0]).toMatchObject({
       productId: "s1",
       unavailable: "Niet leverbaar op dit moment",
       replacements: [
-        { productId: "s2", name: "Vervanger 1", size: "500 gram", price: "€ 2,19" },
-        { productId: "s3", name: "Vervanger 2", size: "500 gram", price: "€ 2,19" },
-        { productId: "s4", name: "Vervanger 3", size: "500 gram", price: "€ 2,19" },
+        { id: "s2", name: "Vervanger 1", size: "500 gram", price: "€ 2,19" },
+        { id: "s4", name: "Vervanger 3", price: "€ 1,79", wasPrice: "€ 1,99" },
+        { id: "s5", name: "Vervanger 4" },
       ],
     });
-    expect(text).not.toMatch(/image-id|s5/);
+    expect(json().items[0].price).toBeUndefined();
+    expect(json().items[1].replacements).toBeUndefined();
+    expect(text).not.toMatch(/irrelevant|image-id|s6/);
+  });
+
+  it("keeps the reason when the replacements can't be read", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.getCart.mockResolvedValue(cart([unavailableLine("s1")]));
+    picnic.cart.getReplacements.mockRejectedValue(new Error("page failed"));
+    const onError = vi.fn();
+    await connect(picnic, { onError });
+
+    const item = (await call("get_cart")).json().items[0];
+    expect(item.unavailable).toBe("Niet leverbaar op dit moment");
+    expect(item.replacements).toBeUndefined();
+    expect(onError).toHaveBeenCalled();
   });
 
   it("says when an added product can't be delivered", async () => {
     const picnic = mockPicnic();
     picnic.cart.addProductToCart.mockResolvedValue(cart([unavailableLine("s1")]));
+    picnic.cart.getReplacements.mockImplementation(async (id: string) => replacementsOf(id));
     await connect(picnic);
 
     const result = (await call("add_to_cart", { productId: "s1" })).json();
@@ -180,7 +201,7 @@ describe("createServer", () => {
       quantityInCart: 1,
       unavailable: "Niet leverbaar op dit moment",
     });
-    expect(result.added.replacements).toHaveLength(3);
+    expect(result.added.replacements.map((p: { id: string }) => p.id)).toEqual(["s2", "s4", "s5"]);
   });
 
   it("adds no hint when the added product can be delivered", async () => {
@@ -229,7 +250,7 @@ describe("createServer", () => {
       new PicnicClient.PicnicApiError(401, "Unauthorized", '{"error":{"code":"AUTH_ERROR"}}')
     );
     const onError = vi.fn();
-    await connect(picnic, onError);
+    await connect(picnic, { onError });
 
     const result = await call("get_cart");
     expect(result.isError).toBe(true);

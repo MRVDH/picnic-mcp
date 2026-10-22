@@ -15,6 +15,9 @@ export function describeError(error: unknown): string {
     }
     return `Picnic answered with HTTP ${error.status}${error.code ? ` (${error.code})` : ""}.`;
   }
+  if (PicnicClient.isProductNotFoundError(error)) {
+    return `Product ${error.productId} doesn't exist or isn't available here. Check the product id with search_products.`;
+  }
   if (PicnicClient.isUnexpectedPageFormatError(error)) {
     return "Picnic changed the format of a page this server reads. Update picnic-mcp, or report it if this is the latest version.";
   }
