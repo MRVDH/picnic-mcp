@@ -1,0 +1,52 @@
+name: Publish to the MCP Registry
+
+# Lists a released version in the MCP Registry, with the npm package and the release's MCPB bundle.
+# Run it after the npm version is approved: the registry checks the package's mcpName on npm.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag, e.g. v1.0.0
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # registry login with GitHub OIDC
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Check that the tag matches server.json
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          expected="v$(jq -r .version server.json)"
+          if [ "$TAG" != "$expected" ]; then
+            echo "::error::Tag $TAG does not match the server.json version ($expected)."
+            exit 1
+          fi
+
+      - name: Add the release's bundle to server.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$TAG" --pattern picnic-mcp.mcpb
+          sha=$(sha256sum picnic-mcp.mcpb | cut -d " " -f 1)
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/picnic-mcp.mcpb"
+          jq --arg url "$url" --arg sha "$sha" \
+            '.packages += [{registryType: "mcpb", identifier: $url, fileSha256: $sha, transport: {type: "stdio"}}]' \
+            server.json > server.tmp
+          mv server.tmp server.json
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz \
+            | tar xz mcp-publisher
+
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish

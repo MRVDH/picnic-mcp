@@ -19,7 +19,12 @@ src/
   tools/            # groups.ts lists the tool groups; one file per group: schemas, descriptions, handlers
   format/           # model-facing output, built from an allow-list of fields
 test/               # vitest, with made-up fixtures
+eval/               # runs chat requests through real models against a fake Picnic (`npm run eval`)
+mcpb/manifest.json  # the MCPB bundle's manifest; scripts/bundle.sh builds picnic-mcp.mcpb
+server.json         # the MCP Registry entry; the registry workflow adds the release's bundle
 ```
+
+`package.json`, `server.json` and `mcpb/manifest.json` carry the same version; CI checks it.
 
 ## Where code goes
 
@@ -50,6 +55,12 @@ test/               # vitest, with made-up fixtures
 - Build output from an allow-list in `format/`, never by spreading a picnic-api model, so new fields
   in picnic-api don't reach the model unnoticed.
 - Read-only tools get `readOnlyHint: true`. No tool may start a checkout or place an order.
+- Ids in output say what they are (`productId`, `recipeId`, `slotId`, `aisleId`, `promotionId`),
+  matching the input that takes them.
+- Tool names, inputs and output fields are stable within a major version: add tools, optional
+  inputs and output fields in a minor version; rename or remove them only in a new major.
+- Run the evaluation after changing a description, a `next` hint or the default groups, and update
+  the results in the README.
 
 ## Product matching
 
@@ -82,5 +93,9 @@ The repo is public, including its history and pull requests.
   `npx @modelcontextprotocol/inspector --cli node dist/cli.js -e PICNIC_AUTH_KEY=<key> --method tools/list`.
 - To test against an unreleased picnic-api, run `npm pack --pack-destination /tmp` in picnic-api and
   `npm install --no-save /tmp/picnic-api-<version>.tgz` here.
+- `npm run eval` calls a paid model API (`OPENAI_API_KEY`); ask before running it.
+- `npm run build && npm run bundle` builds the MCPB bundle locally.
 
-Don't bump the version or publish unless asked.
+Don't bump the version or publish unless asked. A release publishes to npm (staged until approved
+on npmjs.com) and attaches the bundle to the GitHub release; after the npm version is approved, run
+the "Publish to the MCP Registry" workflow with the tag.

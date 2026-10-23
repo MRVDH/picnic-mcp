@@ -112,6 +112,62 @@ export function registerRecipeTools(server: McpServer, context: ToolContext): vo
   );
 
   server.registerTool(
+    "get_saved_recipes",
+    {
+      title: "Get saved recipes",
+      description:
+        "List the recipes the user saved in the Picnic app. Returns recipe ids for get_recipe and add_recipe_to_cart.",
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    () =>
+      runTool(async () => {
+        const recipes = (await client.recipe.getSavedRecipes()).map(formatRecipeSummary);
+        return jsonResult({
+          ...(recipes.length === 0 && {
+            next: "The user has no saved recipes. Use search_recipes to find one.",
+          }),
+          recipes,
+        });
+      }, onError)
+  );
+
+  server.registerTool(
+    "save_recipe",
+    {
+      title: "Save recipe",
+      description:
+        "Save a recipe to the user's saved recipes in the Picnic app, by recipeId or a recipe link the user shared.",
+      inputSchema: z.object({ recipeId }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    },
+    ({ recipeId: link }) =>
+      runTool(async () => {
+        const recipeId = await resolveRecipeLink(link);
+        if (!recipeId) return errorResult(NOT_A_RECIPE);
+        await client.recipe.saveRecipe(recipeId);
+        return jsonResult({ saved: { recipeId } });
+      }, onError)
+  );
+
+  server.registerTool(
+    "unsave_recipe",
+    {
+      title: "Unsave recipe",
+      description:
+        "Remove a recipe from the user's saved recipes in the Picnic app. Get the recipeId from get_saved_recipes.",
+      inputSchema: z.object({ recipeId }),
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    },
+    ({ recipeId: link }) =>
+      runTool(async () => {
+        const recipeId = await resolveRecipeLink(link);
+        if (!recipeId) return errorResult(NOT_A_RECIPE);
+        await client.recipe.unsaveRecipe(recipeId);
+        return jsonResult({ unsaved: { recipeId } });
+      }, onError)
+  );
+
+  server.registerTool(
     "remove_recipe_from_cart",
     {
       title: "Remove recipe from cart",

@@ -1,0 +1,62 @@
+{
+  "manifest_version": "0.3",
+  "name": "picnic-mcp",
+  "display_name": "Picnic",
+  "version": "0.5.0",
+  "description": "Search products, fill the cart and pick a delivery slot at the online supermarket Picnic.",
+  "long_description": "Tools for your account at the online supermarket Picnic: search products, add them to the cart, change quantities, pick a delivery slot, read product details, see promotions and the products you usually buy, follow deliveries and use recipes. It never places an order.",
+  "author": {
+    "name": "Maarten van den Hoven",
+    "url": "https://maartenvandenhoven.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MRVDH/picnic-mcp"
+  },
+  "homepage": "https://github.com/MRVDH/picnic-mcp",
+  "support": "https://github.com/MRVDH/picnic-mcp/issues",
+  "license": "MIT",
+  "keywords": ["picnic", "supermarket", "groceries", "shopping"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"],
+      "env": {
+        "PICNIC_AUTH_KEY": "${user_config.auth_key}",
+        "PICNIC_COUNTRY_CODE": "${user_config.country_code}",
+        "PICNIC_MCP_TOOLS": "${user_config.tools}"
+      }
+    }
+  },
+  "user_config": {
+    "auth_key": {
+      "type": "string",
+      "title": "Picnic auth key",
+      "description": "Get it once with `npx picnic-mcp login` in a terminal.",
+      "sensitive": true,
+      "required": true
+    },
+    "country_code": {
+      "type": "string",
+      "title": "Country",
+      "description": "The country of your Picnic account: NL, DE or FR.",
+      "default": "NL",
+      "required": false
+    },
+    "tools": {
+      "type": "string",
+      "title": "Tool groups",
+      "description": "Comma-separated, from cart, slots, product, discover, deliveries, recipes.",
+      "default": "cart,slots,product,discover",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}

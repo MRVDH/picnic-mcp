@@ -3,13 +3,14 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { registerCartTools } from "./cart.js";
 import { SEARCH_LANGUAGES, type ToolContext } from "./context.js";
 import { registerDeliveryTools } from "./deliveries.js";
+import { registerDiscoverTools } from "./discover.js";
 import { registerProductTools } from "./product.js";
 import { registerRecipeTools } from "./recipes.js";
 import { registerSearchProducts } from "./search-products.js";
 import { registerSlotTools } from "./slots.js";
 
 /** A set of tools that can be turned on together. */
-export type ToolGroup = "cart" | "slots" | "product" | "deliveries" | "recipes";
+export type ToolGroup = "cart" | "slots" | "product" | "discover" | "deliveries" | "recipes";
 
 type GroupDefinition = {
   register: (server: McpServer, context: ToolContext) => void;
@@ -24,7 +25,7 @@ const GROUPS: Record<ToolGroup, GroupDefinition> = {
       registerCartTools(server, context);
     },
     instructions: ({ countryCode }) =>
-      `To add a product: search_products (query in ${SEARCH_LANGUAGES[countryCode]}), then add_to_cart with the product id. If the search returns choices, ask the user first.`,
+      `To add products: search_products for each (query in ${SEARCH_LANGUAGES[countryCode]}), then one add_to_cart with all product ids. If a search returns choices, ask the user first. To change a quantity: set_cart_quantity.`,
   },
   slots: {
     register: registerSlotTools,
@@ -35,6 +36,11 @@ const GROUPS: Record<ToolGroup, GroupDefinition> = {
     register: registerProductTools,
     instructions: () => "For a product's ingredients, allergens or nutrition: get_product.",
   },
+  discover: {
+    register: registerDiscoverTools,
+    instructions: () =>
+      'For what is on sale: get_promotions. For the products the user usually buys ("my usual groceries"): get_favorites.',
+  },
   deliveries: {
     register: registerDeliveryTools,
     instructions: () =>
@@ -43,15 +49,15 @@ const GROUPS: Record<ToolGroup, GroupDefinition> = {
   recipes: {
     register: registerRecipeTools,
     instructions: () =>
-      "For recipes: search_recipes, get_recipe, then add_recipe_to_cart once the user picked one.",
+      "For recipes: search_recipes or get_saved_recipes, get_recipe, then add_recipe_to_cart once the user picked one.",
   },
 };
 
 /** Every group, in the order the tools are registered. */
 export const TOOL_GROUPS = Object.keys(GROUPS) as ToolGroup[];
 
-/** The groups that are on when none are given: the cart flow and read-only product details. */
-export const DEFAULT_TOOL_GROUPS: readonly ToolGroup[] = ["cart", "slots", "product"];
+/** The groups that are on when none are given: the cart flow and the read-only product tools. */
+export const DEFAULT_TOOL_GROUPS: readonly ToolGroup[] = ["cart", "slots", "product", "discover"];
 
 /** Reads a comma-separated list of groups, e.g. "cart,recipes". */
 export function parseToolGroups(value: string): ToolGroup[] {

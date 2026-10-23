@@ -11,6 +11,10 @@ export function mockPicnic() {
       getSearchResults: vi.fn(),
       getProduct: vi.fn(),
       getImageUrl: vi.fn((imageId: string) => `https://images.example.com/${imageId}.png`),
+      getPromotions: vi.fn(),
+      getPromotionGroup: vi.fn(),
+      getFavorites: vi.fn(),
+      getFavoritesInAisle: vi.fn(),
     },
     cart: {
       getCart: vi.fn(),
@@ -25,6 +29,9 @@ export function mockPicnic() {
       getRecipe: vi.fn(),
       addRecipeToCart: vi.fn(),
       removeRecipeFromCart: vi.fn(),
+      getSavedRecipes: vi.fn(),
+      saveRecipe: vi.fn(),
+      unsaveRecipe: vi.fn(),
     },
   };
 }
@@ -38,19 +45,39 @@ afterEach(async () => {
   client = undefined;
 });
 
-/** Connects an MCP client to a server on the mock over the in-memory transport. */
+/** What the test client answers when the server asks the user to fill in a form. */
+export type ElicitAnswer = {
+  action: "accept" | "decline" | "cancel";
+  content?: Record<string, string | number | boolean | string[]>;
+};
+
+/**
+ * Connects an MCP client to a server on the mock over the in-memory transport. With `elicit`, the
+ * client declares form elicitation and answers the server's forms with it.
+ */
 export async function connect(
   picnic: MockPicnic,
-  options: Pick<CreateServerOptions, "tools" | "onError"> = {}
+  options: Pick<CreateServerOptions, "tools" | "onError"> & {
+    elicit?: (request: { message: string; requestedSchema: unknown }) => ElicitAnswer;
+  } = {}
 ): Promise<Client> {
+  const { elicit, ...serverOptions } = options;
   const server = createServer({
     client: picnic as unknown as PicnicClient,
     onError: vi.fn(),
-    ...options,
+    ...serverOptions,
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
-  client = new Client({ name: "test", version: "1.0.0" });
+  client = new Client(
+    { name: "test", version: "1.0.0" },
+    elicit ? { capabilities: { elicitation: { form: {} } } } : undefined
+  );
+  if (elicit) {
+    client.setRequestHandler("elicitation/create", async (request) =>
+      elicit(request.params as { message: string; requestedSchema: unknown })
+    );
+  }
   await client.connect(clientTransport);
   return client;
 }

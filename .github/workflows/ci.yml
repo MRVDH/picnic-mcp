@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run format:check
+
+      - name: Check that server.json and the bundle manifest have the package version
+        run: |
+          node -e '
+            const version = require("./package.json").version;
+            const server = require("./server.json");
+            const manifest = require("./mcpb/manifest.json");
+            const found = { "server.json": server.version, "server.json package": server.packages[0].version, "mcpb/manifest.json": manifest.version };
+            const wrong = Object.entries(found).filter(([, value]) => value !== version);
+            for (const [file, value] of wrong) console.error(`::error::${file} has version ${value}, package.json has ${version}.`);
+            process.exit(wrong.length > 0 ? 1 : 0);
+          '

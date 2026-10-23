@@ -1,7 +1,7 @@
 name: Publish
 
-# Stages a new npm version when a GitHub release is published. The release tag must match the version
-# in package.json, e.g. v0.1.0 for 0.1.0.
+# Stages a new npm version when a GitHub release is published, and attaches the MCPB bundle to the
+# release. The release tag must match the version in package.json, e.g. v0.1.0 for 0.1.0.
 on:
   release:
     types: [published]
@@ -10,7 +10,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # attach the bundle to the release
       id-token: write # npm trusted publishing
     steps:
       - uses: actions/checkout@v5
@@ -32,5 +32,13 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+
+      - name: Attach the MCPB bundle to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npm run bundle
+          gh release upload "$GITHUB_REF_NAME" picnic-mcp.mcpb
+
       # Staged: the version goes live after a maintainer approves it on npmjs.com with 2FA.
       - run: npm stage publish

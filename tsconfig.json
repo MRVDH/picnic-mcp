@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*", "test/**/*", "vitest.config.ts"],
+  "include": ["src/**/*", "test/**/*", "eval/**/*", "vitest.config.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",

@@ -16,3 +16,4 @@ export type DeliverySummary = PicnicClient.Types.delivery.DeliverySummary;
 export type Delivery = PicnicClient.Types.delivery.Delivery;
 export type DeliveryPosition = PicnicClient.Types.delivery.DeliveryPosition;
 export type Recipe = PicnicClient.Types.recipe.Recipe;
+export type PromotionGroup = PicnicClient.Types.catalog.PromotionGroup;

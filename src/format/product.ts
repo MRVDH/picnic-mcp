@@ -6,7 +6,7 @@ const MAX_TEXT = 1500;
 
 /** A product's details as a tool shows them to a model. Optional fields are left out when empty. */
 export type ProductDetailsOutput = {
-  id: string;
+  productId: string;
   name: string;
   brand?: string;
   size?: string;
@@ -48,7 +48,7 @@ export function formatProductDetails(
     )
     .map((section) => ({ title: section.title, content: cut(section.content) }));
   return {
-    id: product.id,
+    productId: product.id,
     name: product.name,
     ...(product.brand && { brand: product.brand }),
     ...(product.unitQuantity && { size: product.unitQuantity }),
