@@ -26,3 +26,24 @@ export function describeError(error: unknown): string {
   }
   return "Could not reach Picnic. Try again later.";
 }
+
+/** Added to an error of a tool that changes the cart, when the change may have happened anyway. */
+export const CART_MAY_HAVE_CHANGED =
+  "The cart may have changed anyway: check get_cart before trying again.";
+
+/**
+ * Whether a failed cart change may still have gone through: after a timeout, a network error or a
+ * server error the request may have reached Picnic. Not when Picnic rejected it (a 4xx, the auth
+ * key, rate limiting) or it failed before anything was sent.
+ */
+export function mayHaveChangedCart(error: unknown): boolean {
+  if (PicnicClient.isPicnicApiError(error))
+    return error.status >= 500 && !/<html[\s>]/i.test(error.body);
+  if (
+    PicnicClient.isProductNotFoundError(error) ||
+    PicnicClient.isUnexpectedPageFormatError(error)
+  ) {
+    return false;
+  }
+  return true;
+}

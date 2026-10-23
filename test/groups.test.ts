@@ -1,6 +1,6 @@
 // Made-up data in the shape of picnic-api's models. Never copy real account data in here.
 import PicnicClient from "picnic-api";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { parseToolGroups } from "../src/tools/groups.js";
 import { cart, line } from "./fixtures.js";
@@ -282,7 +282,7 @@ describe("deliveries", () => {
     expect(json().deliveries).toEqual([
       {
         window: "Fri 23 Oct, 18:00-19:00",
-        itemCount: 12,
+        itemCount: 1,
         total: "€ 50,00",
         onTheWay: true,
         expectedArrival: "18:12-18:32",
@@ -300,6 +300,90 @@ describe("deliveries", () => {
 
     expect((await call("get_deliveries")).json().next).toMatch(/no upcoming deliveries/);
     expect(picnic.delivery.getDeliveryPosition).not.toHaveBeenCalled();
+  });
+
+  it("lists the last three past deliveries, newest first, with products and no position", async () => {
+    const picnic = mockPicnic();
+    picnic.delivery.getDeliverySummaries.mockResolvedValue([
+      summary("delivery-1", "2026-09-01T18:00:00.000+02:00"),
+      summary("delivery-4", "2026-10-20T18:00:00.000+02:00"),
+      summary("delivery-2", "2026-09-15T18:00:00.000+02:00"),
+      summary("delivery-3", "2026-10-06T18:00:00.000+02:00"),
+    ]);
+    picnic.delivery.getDelivery.mockImplementation(async (id: string) => ({
+      id,
+      orders: [
+        {
+          id: "order-1",
+          items: [line({ productId: "s1" })],
+          payment: { redactedIban: "NL00XXXX0000" },
+        },
+      ],
+    }));
+    await connect(picnic, { tools: ["deliveries"] });
+
+    const { text, json } = await call("get_deliveries", { when: "past", includeProducts: true });
+    expect(picnic.delivery.getDeliverySummaries).toHaveBeenCalledWith(["COMPLETED"]);
+    expect(picnic.delivery.getDeliveryPosition).not.toHaveBeenCalled();
+    expect(json().deliveries.map((d: { window: string }) => d.window)).toEqual([
+      "Tue 20 Oct, 18:00-19:00",
+      "Tue 6 Oct, 18:00-19:00",
+      "Tue 15 Sept, 18:00-19:00",
+    ]);
+    expect(json().deliveries[0].products).toEqual([expect.objectContaining({ productId: "s1" })]);
+    expect(text).not.toMatch(/delivery-\d|order-1|NL00/);
+  });
+
+  it("says when there are no past deliveries", async () => {
+    const picnic = mockPicnic();
+    picnic.delivery.getDeliverySummaries.mockResolvedValue([]);
+    await connect(picnic, { tools: ["deliveries"] });
+
+    expect((await call("get_deliveries", { when: "past" })).json().next).toMatch(
+      /no past deliveries/
+    );
+  });
+});
+
+describe("cart errors", () => {
+  it("says the cart may have changed after a server error or timeout", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.addProductToCart.mockRejectedValueOnce(
+      new PicnicClient.PicnicApiError(502, "Bad Gateway", "{}")
+    );
+    picnic.cart.removeProductFromCart.mockRejectedValueOnce(
+      Object.assign(new Error("timed out"), { name: "TimeoutError" })
+    );
+    await connect(picnic);
+
+    expect((await call("add_to_cart", { productId: "s1" })).text).toMatch(
+      /check get_cart before trying again/
+    );
+    expect((await call("remove_from_cart", { productId: "s1" })).text).toMatch(
+      /check get_cart before trying again/
+    );
+  });
+
+  it("doesn't say so when Picnic rejected the change, or for a read", async () => {
+    const picnic = mockPicnic();
+    picnic.cart.addProductToCart.mockRejectedValueOnce(
+      new PicnicClient.PicnicApiError(401, "Unauthorized", "{}")
+    );
+    picnic.cart.removeProductFromCart.mockRejectedValueOnce(
+      new PicnicClient.PicnicApiError(403, "Forbidden", "<html><body>403</body></html>")
+    );
+    picnic.cart.getCart.mockRejectedValueOnce(new PicnicClient.PicnicApiError(500, "Error", "{}"));
+    await connect(picnic);
+
+    for (const [name, args] of [
+      ["add_to_cart", { productId: "s1" }],
+      ["remove_from_cart", { productId: "s1" }],
+      ["get_cart", {}],
+    ] as const) {
+      const result = await call(name, args);
+      expect(result.isError).toBe(true);
+      expect(result.text).not.toMatch(/get_cart before/);
+    }
   });
 });
 
@@ -410,6 +494,45 @@ describe("recipes", () => {
     const removed = (await call("remove_recipe_from_cart", { recipeId: "r1" })).json();
     expect(removed.removed).toEqual({ recipeId: "r1", productsRemoved: 3 });
     expect(removed.cart.itemCount).toBe(1);
+  });
+
+  it("accepts a shared recipe link and uses the recipe id it leads to", async () => {
+    const id = "0123456789abcdef01234567";
+    const fetch = vi.fn(
+      async () =>
+        ({ url: `https://picnic.app/nl/recepten/${id}`, body: null }) as unknown as Response
+    );
+    vi.stubGlobal("fetch", fetch);
+    const picnic = mockPicnic();
+    picnic.recipe.addRecipeToCart.mockResolvedValue({
+      anyUnavailableIngredient: false,
+      assignedNumberOfPortions: 2,
+      cart: {},
+    });
+    picnic.cart.getCart.mockResolvedValue(cart([]));
+    await connect(picnic, { tools: ["recipes"] });
+
+    const added = (
+      await call("add_recipe_to_cart", { recipeId: "https://picnic.app/nl/go/abc1234" })
+    ).json();
+    vi.unstubAllGlobals();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(picnic.recipe.addRecipeToCart).toHaveBeenCalledWith(id, { portions: undefined });
+    expect(added.added.recipeId).toBe(id);
+  });
+
+  it("says when a link isn't a recipe, without changing the cart", async () => {
+    const picnic = mockPicnic();
+    await connect(picnic, { tools: ["recipes"] });
+
+    for (const name of ["get_recipe", "add_recipe_to_cart", "remove_recipe_from_cart"]) {
+      const result = await call(name, { recipeId: "https://example.com/pasta" });
+      expect(result.isError).toBe(true);
+      expect(result.text).toMatch(/isn't a Picnic recipe/);
+    }
+    expect(picnic.recipe.getRecipe).not.toHaveBeenCalled();
+    expect(picnic.recipe.addRecipeToCart).not.toHaveBeenCalled();
+    expect(picnic.recipe.removeRecipeFromCart).not.toHaveBeenCalled();
   });
 });
 

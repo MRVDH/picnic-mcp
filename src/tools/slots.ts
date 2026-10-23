@@ -71,14 +71,18 @@ export function registerSlotTools(server: McpServer, context: ToolContext): void
       },
     },
     ({ slotId }) =>
-      runTool(async () => {
-        const cart = await client.cart.setDeliverySlot(slotId);
-        if (cart.selectedSlot?.slotId !== slotId) {
-          return errorResult(
-            `Picnic did not select slot ${slotId}. Check the slotId with get_delivery_slots.`
-          );
-        }
-        return jsonResult({ selected: true, cart: formatCartSummary(cart, countryCode) });
-      }, onError)
+      runTool(
+        async () => {
+          const cart = await client.cart.setDeliverySlot(slotId);
+          if (cart.selectedSlot?.slotId !== slotId) {
+            return errorResult(
+              `Picnic did not select slot ${slotId}. Check the slotId with get_delivery_slots.`
+            );
+          }
+          return jsonResult({ selected: true, cart: formatCartSummary(cart, countryCode) });
+        },
+        onError,
+        { changesCart: true }
+      )
   );
 }

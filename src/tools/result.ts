@@ -1,6 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
-import { describeError } from "../errors.js";
+import { CART_MAY_HAVE_CHANGED, describeError, mayHaveChangedCart } from "../errors.js";
 
 /** The `_meta` key with the image URLs of the products in a result, by product id. */
 export const IMAGES_META_KEY = "picnic-mcp/images";
@@ -23,15 +23,25 @@ export function errorResult(message: string): CallToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
-/** Runs a tool handler and turns a thrown error into a short tool error. */
+/**
+ * Runs a tool handler and turns a thrown error into a short tool error. For a tool that changes
+ * the cart, the error says when the change may have gone through anyway, so the model checks the
+ * cart instead of retrying blindly.
+ */
 export async function runTool(
   run: () => Promise<CallToolResult>,
-  onError: (error: unknown) => void
+  onError: (error: unknown) => void,
+  options: { changesCart?: boolean } = {}
 ): Promise<CallToolResult> {
   try {
     return await run();
   } catch (error) {
     onError(error);
-    return errorResult(describeError(error));
+    const message = describeError(error);
+    return errorResult(
+      options.changesCart && mayHaveChangedCart(error)
+        ? `${message} ${CART_MAY_HAVE_CHANGED}`
+        : message
+    );
   }
 }

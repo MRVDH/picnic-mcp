@@ -11,7 +11,8 @@ order.
 src/
   index.ts          # public exports: createServer and the output types
   server.ts         # createServer(): the McpServer with the tools registered
-  cli.ts            # the `picnic-mcp` bin: stdio server, and `login` to print an auth key
+  cli.ts            # the `picnic-mcp` bin: stdio server, `http` for the HTTP server, and `login` to print an auth key
+  http.ts           # the HTTP server: token, Host and Origin checks in front of the SDK's handler
   types.ts          # CountryCode and aliases for picnic-api's models
   match.ts          # picks a best match or choices from search results
   errors.ts         # picnic-api errors -> short messages for the model
@@ -26,7 +27,10 @@ test/               # vitest, with made-up fixtures
   pages, and other knowledge of Picnic's data, belongs in picnic-api. When a tool needs data that
   picnic-api doesn't return yet, add it to picnic-api first.
 - `createServer` reads no environment variables or files and starts no transport, so it can run in
-  another process's code. Environment variables and stdio belong in `cli.ts`.
+  another process's code. Environment variables, stdio and starting the HTTP server belong in
+  `cli.ts`.
+- The HTTP server stays behind its checks: a token of at least 32 characters, the Host and Origin
+  allow-list, only `/mcp`, and `127.0.0.1` by default. Don't add a way to run it without a token.
 - The package is about itself: don't name specific MCP clients, consumers or model providers in
   code, docs or tool descriptions.
 
