@@ -8,20 +8,20 @@ Unofficial: not made or supported by Picnic. Built on [picnic-api](https://githu
 
 The tools come in groups. `cart`, `slots` and `product` are on by default; turn groups on or off with `PICNIC_MCP_TOOLS` (see Setup).
 
-| Group        | Tool                      | What it does                                                                                                                                    |
-| ------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cart`       | `search_products`         | Searches products. Returns a `bestMatch` when one product fits (usually one you bought before), or 2 or 3 `choices` to ask you about.           |
-|              | `add_to_cart`             | Adds a product by its id. Returns the quantity in the cart and the cart total, and replacements when the product can't be delivered.            |
-|              | `remove_from_cart`        | Removes a product by its id.                                                                                                                    |
-|              | `get_cart`                | Shows the cart: products, quantities, prices, total and delivery window, and replacements for products that can't be delivered.                 |
-| `slots`      | `get_delivery_slots`      | Lists the delivery slots, two days at a time or for one date.                                                                                   |
-|              | `select_delivery_slot`    | Chooses the delivery slot of the cart.                                                                                                          |
-| `product`    | `get_product`             | Shows a product's ingredients, allergens, nutrition, storage info, promotion and price.                                                         |
-| `deliveries` | `get_deliveries`          | Shows upcoming deliveries: window, number of products, total, and the expected arrival while the driver is on the way. Optionally the products. |
-| `recipes`    | `search_recipes`          | Searches Picnic's recipes.                                                                                                                      |
-|              | `get_recipe`              | Shows a recipe's ingredients, allergens and steps.                                                                                              |
-|              | `add_recipe_to_cart`      | Adds a recipe's ingredients to the cart for a number of portions.                                                                               |
-|              | `remove_recipe_from_cart` | Removes a recipe and its ingredients from the cart.                                                                                             |
+| Group        | Tool                      | What it does                                                                                                                                                                                         |
+| ------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cart`       | `search_products`         | Searches products. Returns a `bestMatch` when one product fits (usually one you bought before), or 2 or 3 `choices` to ask you about.                                                                |
+|              | `add_to_cart`             | Adds a product by its id. Returns the quantity in the cart and the cart total, and replacements when the product can't be delivered.                                                                 |
+|              | `remove_from_cart`        | Removes a product by its id.                                                                                                                                                                         |
+|              | `get_cart`                | Shows the cart: products, quantities, prices, total and delivery window, and replacements for products that can't be delivered.                                                                      |
+| `slots`      | `get_delivery_slots`      | Lists the delivery slots, two days at a time or for one date.                                                                                                                                        |
+|              | `select_delivery_slot`    | Chooses the delivery slot of the cart.                                                                                                                                                               |
+| `product`    | `get_product`             | Shows a product's ingredients, allergens, nutrition, storage info, promotion and price.                                                                                                              |
+| `deliveries` | `get_deliveries`          | Shows upcoming deliveries (window, number of products, total, and the expected arrival while the driver is on the way) or the last past ones. Optionally the products, e.g. to order the same again. |
+| `recipes`    | `search_recipes`          | Searches Picnic's recipes.                                                                                                                                                                           |
+|              | `get_recipe`              | Shows a recipe's ingredients, allergens and steps. The recipe tools also take a recipe link shared from the Picnic app.                                                                              |
+|              | `add_recipe_to_cart`      | Adds a recipe's ingredients to the cart for a number of portions.                                                                                                                                    |
+|              | `remove_recipe_from_cart` | Removes a recipe and its ingredients from the cart.                                                                                                                                                  |
 
 Output is compact JSON with only what a model needs. It leaves out your name, address, payment details, order numbers and other account details. Keep in mind that whatever the tools return is sent to the model your MCP client uses.
 
@@ -56,9 +56,30 @@ Most clients take a configuration like this:
 }
 ```
 
-`PICNIC_COUNTRY_CODE` is `NL`, `DE` or `FR` (default `NL`). To choose the tool groups, add `PICNIC_MCP_TOOLS` with a comma-separated list, e.g. `"cart,slots,product,deliveries,recipes"` (default `cart,slots,product`). The server runs over stdio.
+`PICNIC_COUNTRY_CODE` is `NL`, `DE` or `FR` (default `NL`). To choose the tool groups, add `PICNIC_MCP_TOOLS` with a comma-separated list, e.g. `"cart,slots,product,deliveries,recipes"` (default `cart,slots,product`). The server runs over stdio; see [HTTP](#http) to reach it over the network.
 
 When the key expires, the tools say so; run `npx picnic-mcp login` again.
+
+## HTTP
+
+`picnic-mcp http` serves the same tools over HTTP at `/mcp`, for clients that connect to a URL. It needs a token that clients send as `Authorization: Bearer <token>`; generate one with:
+
+```bash
+openssl rand -hex 32
+```
+
+```bash
+PICNIC_AUTH_KEY=<auth key> PICNIC_MCP_HTTP_TOKEN=<token> npx picnic-mcp http
+```
+
+| Variable                        |                                                                                                                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PICNIC_MCP_HTTP_TOKEN`         | Required, at least 32 characters. Anyone with it can change your cart, so keep it secret.                                                                        |
+| `PICNIC_MCP_HTTP_HOST`          | Address to listen on. Default `127.0.0.1`, so only this machine can connect.                                                                                     |
+| `PICNIC_MCP_HTTP_PORT`          | Default `3000`.                                                                                                                                                  |
+| `PICNIC_MCP_HTTP_ALLOWED_HOSTS` | Host names allowed besides localhost, comma-separated, e.g. the name of a reverse proxy in front of it. Requests with another Host or Origin header are refused. |
+
+The server doesn't do HTTPS. To use it from another machine, put it behind a reverse proxy with HTTPS, and add the proxy's host name to `PICNIC_MCP_HTTP_ALLOWED_HOSTS`.
 
 ## Use it in your own code
 

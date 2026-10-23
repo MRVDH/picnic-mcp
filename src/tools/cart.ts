@@ -44,35 +44,39 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     ({ productId, quantity }) =>
-      runTool(async () => {
-        const cart = await client.cart.addProductToCart(productId, quantity);
-        const lines = linesOf(cart, productId);
-        if (lines.length === 0) {
-          return errorResult(
-            `Picnic did not add ${productId}. Check the product id with search_products.`
-          );
-        }
-        const unavailableLine = lines.find((line) => line.isUnavailable);
-        const replacements = unavailableLine
-          ? await loadReplacements(context, cart, [productId])
-          : undefined;
-        return jsonResult(
-          {
-            ...(unavailableLine && {
-              next: "The product is in the cart, but it can't be delivered in the selected delivery window. Tell the user, and offer the replacements if there are any.",
-            }),
-            added: {
-              productId,
-              name: lines[0].name,
-              quantityInCart: quantityOf(lines),
-              ...(unavailableLine &&
-                formatUnavailability(unavailableLine, replacements?.byProduct.get(productId))),
+      runTool(
+        async () => {
+          const cart = await client.cart.addProductToCart(productId, quantity);
+          const lines = linesOf(cart, productId);
+          if (lines.length === 0) {
+            return errorResult(
+              `Picnic did not add ${productId}. Check the product id with search_products.`
+            );
+          }
+          const unavailableLine = lines.find((line) => line.isUnavailable);
+          const replacements = unavailableLine
+            ? await loadReplacements(context, cart, [productId])
+            : undefined;
+          return jsonResult(
+            {
+              ...(unavailableLine && {
+                next: "The product is in the cart, but it can't be delivered in the selected delivery window. Tell the user, and offer the replacements if there are any.",
+              }),
+              added: {
+                productId,
+                name: lines[0].name,
+                quantityInCart: quantityOf(lines),
+                ...(unavailableLine &&
+                  formatUnavailability(unavailableLine, replacements?.byProduct.get(productId))),
+              },
+              cart: formatCartSummary(cart, countryCode),
             },
-            cart: formatCartSummary(cart, countryCode),
-          },
-          { ...imageUrls(context, lines.slice(0, 1)), ...replacements?.images }
-        );
-      }, onError)
+            { ...imageUrls(context, lines.slice(0, 1)), ...replacements?.images }
+          );
+        },
+        onError,
+        { changesCart: true }
+      )
   );
 
   server.registerTool(
@@ -86,13 +90,17 @@ export function registerCartTools(server: McpServer, context: ToolContext): void
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
     },
     ({ productId, quantity }) =>
-      runTool(async () => {
-        const cart = await client.cart.removeProductFromCart(productId, quantity);
-        return jsonResult({
-          removed: { productId, quantityInCart: quantityOf(linesOf(cart, productId)) },
-          cart: formatCartSummary(cart, countryCode),
-        });
-      }, onError)
+      runTool(
+        async () => {
+          const cart = await client.cart.removeProductFromCart(productId, quantity);
+          return jsonResult({
+            removed: { productId, quantityInCart: quantityOf(linesOf(cart, productId)) },
+            cart: formatCartSummary(cart, countryCode),
+          });
+        },
+        onError,
+        { changesCart: true }
+      )
   );
 }
 

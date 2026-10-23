@@ -1,6 +1,6 @@
 {
   "name": "picnic-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP server for the online supermarket Picnic: search products and manage the cart",
   "keywords": [
     "picnic",

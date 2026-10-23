@@ -3,8 +3,9 @@ import * as z from "zod";
 
 import { formatCartSummary } from "../format/cart.js";
 import { formatRecipe, formatRecipeSummary } from "../format/recipes.js";
+import { resolveRecipeLink } from "../recipe-link.js";
 import { SEARCH_LANGUAGES, type ToolContext } from "./context.js";
-import { jsonResult, runTool } from "./result.js";
+import { errorResult, jsonResult, runTool } from "./result.js";
 
 /** At most this many recipes in search results. */
 const MAX_RECIPES = 8;
@@ -13,7 +14,12 @@ const recipeId = z
   .string()
   .trim()
   .min(1)
-  .describe("The recipeId from search_recipes or get_recipe.");
+  .describe(
+    "The recipeId from search_recipes or get_recipe, or a Picnic recipe link the user shared (https://picnic.app/...)."
+  );
+
+const NOT_A_RECIPE =
+  "That isn't a Picnic recipe or recipe link. Use search_recipes to find the recipe and its recipeId.";
 
 const portions = z
   .number()
@@ -55,19 +61,19 @@ export function registerRecipeTools(server: McpServer, context: ToolContext): vo
     {
       title: "Get recipe",
       description:
-        "Get a Picnic recipe: its ingredients with the products that are added for them, allergens and steps. " +
+        "Get a Picnic recipe, by recipeId or a recipe link the user shared: its ingredients with the products that are added for them, allergens and steps. " +
         "Ingredients with `added: false` aren't added to the cart by default; `cupboard` ones are things most people have at home.",
       inputSchema: z.object({ recipeId, portions }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ({ recipeId, portions }) =>
-      runTool(
-        async () =>
-          jsonResult(
-            formatRecipe(await client.recipe.getRecipe(recipeId, { portions }), countryCode)
-          ),
-        onError
-      )
+    ({ recipeId: link, portions }) =>
+      runTool(async () => {
+        const recipeId = await resolveRecipeLink(link);
+        if (!recipeId) return errorResult(NOT_A_RECIPE);
+        return jsonResult(
+          formatRecipe(await client.recipe.getRecipe(recipeId, { portions }), countryCode)
+        );
+      }, onError)
   );
 
   server.registerTool(
@@ -80,23 +86,29 @@ export function registerRecipeTools(server: McpServer, context: ToolContext): vo
       inputSchema: z.object({ recipeId, portions }),
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
-    ({ recipeId, portions }) =>
-      runTool(async () => {
-        const result = await client.recipe.addRecipeToCart(recipeId, { portions });
-        const cart = await client.cart.getCart();
-        const recipe = cart.recipes.find((item) => item.id === recipeId);
-        return jsonResult({
-          ...(result.anyUnavailableIngredient && {
-            next: "Some ingredients can't be delivered. Tell the user; get_cart shows which ones and their replacements.",
-          }),
-          added: {
-            recipeId,
-            ...(recipe && { name: recipe.title }),
-            portions: result.assignedNumberOfPortions,
-          },
-          cart: formatCartSummary(cart, countryCode),
-        });
-      }, onError)
+    ({ recipeId: link, portions }) =>
+      runTool(
+        async () => {
+          const recipeId = await resolveRecipeLink(link);
+          if (!recipeId) return errorResult(NOT_A_RECIPE);
+          const result = await client.recipe.addRecipeToCart(recipeId, { portions });
+          const cart = await client.cart.getCart();
+          const recipe = cart.recipes.find((item) => item.id === recipeId);
+          return jsonResult({
+            ...(result.anyUnavailableIngredient && {
+              next: "Some ingredients can't be delivered. Tell the user; get_cart shows which ones and their replacements.",
+            }),
+            added: {
+              recipeId,
+              ...(recipe && { name: recipe.title }),
+              portions: result.assignedNumberOfPortions,
+            },
+            cart: formatCartSummary(cart, countryCode),
+          });
+        },
+        onError,
+        { changesCart: true }
+      )
   );
 
   server.registerTool(
@@ -109,15 +121,21 @@ export function registerRecipeTools(server: McpServer, context: ToolContext): vo
       inputSchema: z.object({ recipeId }),
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
     },
-    ({ recipeId }) =>
-      runTool(async () => {
-        const result = await client.recipe.removeRecipeFromCart(recipeId);
-        const cart = await client.cart.getCart();
-        const removedCount = result.SURemoved.reduce((sum, item) => sum + item.quantity, 0);
-        return jsonResult({
-          removed: { recipeId, productsRemoved: removedCount },
-          cart: formatCartSummary(cart, countryCode),
-        });
-      }, onError)
+    ({ recipeId: link }) =>
+      runTool(
+        async () => {
+          const recipeId = await resolveRecipeLink(link);
+          if (!recipeId) return errorResult(NOT_A_RECIPE);
+          const result = await client.recipe.removeRecipeFromCart(recipeId);
+          const cart = await client.cart.getCart();
+          const removedCount = result.SURemoved.reduce((sum, item) => sum + item.quantity, 0);
+          return jsonResult({
+            removed: { recipeId, productsRemoved: removedCount },
+            cart: formatCartSummary(cart, countryCode),
+          });
+        },
+        onError,
+        { changesCart: true }
+      )
   );
 }

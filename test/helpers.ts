@@ -21,7 +21,11 @@ export function mockPicnic() {
       getReplacements: vi.fn(),
     },
     delivery: { getDeliverySummaries: vi.fn(), getDeliveryPosition: vi.fn(), getDelivery: vi.fn() },
-    recipe: { getRecipe: vi.fn(), addRecipeToCart: vi.fn(), removeRecipeFromCart: vi.fn() },
+    recipe: {
+      getRecipe: vi.fn(),
+      addRecipeToCart: vi.fn(),
+      removeRecipeFromCart: vi.fn(),
+    },
   };
 }
 

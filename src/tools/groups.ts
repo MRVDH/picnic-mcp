@@ -37,7 +37,8 @@ const GROUPS: Record<ToolGroup, GroupDefinition> = {
   },
   deliveries: {
     register: registerDeliveryTools,
-    instructions: () => "For orders that are on their way: get_deliveries.",
+    instructions: () =>
+      'For orders on their way: get_deliveries. To order the same as before: get_deliveries with when "past" and includeProducts.',
   },
   recipes: {
     register: registerRecipeTools,
