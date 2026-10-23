@@ -32,6 +32,17 @@ export const CART_MAY_HAVE_CHANGED =
   "The cart may have changed anyway: check get_cart before trying again.";
 
 /**
+ * Whether an error is about the one product a request was for (it doesn't exist, Picnic refused
+ * it), so the next product can still be tried. Not for the auth key, rate limiting or an outage,
+ * which make every request fail.
+ */
+export function isProductError(error: unknown): boolean {
+  if (PicnicClient.isProductNotFoundError(error)) return true;
+  if (!PicnicClient.isPicnicApiError(error) || /<html[\s>]/i.test(error.body)) return false;
+  return error.status >= 400 && error.status < 500 && ![401, 403, 429].includes(error.status);
+}
+
+/**
  * Whether a failed cart change may still have gone through: after a timeout, a network error or a
  * server error the request may have reached Picnic. Not when Picnic rejected it (a 4xx, the auth
  * key, rate limiting) or it failed before anything was sent.

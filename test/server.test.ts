@@ -44,16 +44,21 @@ describe("createServer", () => {
       "add_to_cart",
       "get_cart",
       "get_delivery_slots",
+      "get_favorites",
       "get_product",
+      "get_promotions",
       "remove_from_cart",
       "search_products",
       "select_delivery_slot",
+      "set_cart_quantity",
     ]);
     const readOnly = tools.filter((t) => t.annotations?.readOnlyHint).map((t) => t.name);
     expect(readOnly.sort()).toEqual([
       "get_cart",
       "get_delivery_slots",
+      "get_favorites",
       "get_product",
+      "get_promotions",
       "search_products",
     ]);
   });
@@ -65,8 +70,11 @@ describe("createServer", () => {
       "add_recipe_to_cart",
       "get_deliveries",
       "get_recipe",
+      "get_saved_recipes",
       "remove_recipe_from_cart",
+      "save_recipe",
       "search_recipes",
+      "unsave_recipe",
     ]);
   });
 
@@ -83,7 +91,7 @@ describe("createServer", () => {
     const result = (await call("search_products", { query: "toiletpapier" })).json();
     expect(picnic.catalog.getSearchResults).toHaveBeenCalledWith("toiletpapier");
     expect(result.bestMatch).toEqual({
-      id: "s1",
+      productId: "s1",
       name: "Toiletpapier",
       brand: "Merk",
       size: "1 stuk",
@@ -91,7 +99,7 @@ describe("createServer", () => {
       boughtBefore: true,
     });
     expect(result.otherResults).toEqual([
-      expect.objectContaining({ id: "s2", labels: ["1+1 gratis"] }),
+      expect.objectContaining({ productId: "s2", labels: ["1+1 gratis"] }),
     ]);
     expect(result.choices).toBeUndefined();
   });
@@ -105,7 +113,7 @@ describe("createServer", () => {
 
     const result = (await call("search_products", { query: "mlek" })).json();
     expect(result.searchedFor).toBe("melk");
-    expect(result.choices.map((p: { id: string }) => p.id)).toEqual(["s1", "s2"]);
+    expect(result.choices.map((p: { productId: string }) => p.productId)).toEqual(["s1", "s2"]);
     expect(result.bestMatch).toBeUndefined();
     expect(result.next).toMatch(/ask the user/i);
   });
@@ -146,9 +154,11 @@ describe("createServer", () => {
     );
     await connect(picnic);
 
-    const result = (await call("add_to_cart", { productId: "s1", quantity: 2 })).json();
+    const result = (
+      await call("add_to_cart", { items: [{ productId: "s1", quantity: 2 }] })
+    ).json();
     expect(picnic.cart.addProductToCart).toHaveBeenCalledWith("s1", 2);
-    expect(result.added).toEqual({ productId: "s1", name: "Product s1", quantityInCart: 3 });
+    expect(result.added).toEqual([{ productId: "s1", name: "Product s1", quantityInCart: 3 }]);
     expect(result.cart.itemCount).toBe(3);
   });
 
@@ -165,9 +175,9 @@ describe("createServer", () => {
       productId: "s1",
       unavailable: "Niet leverbaar op dit moment",
       replacements: [
-        { id: "s2", name: "Vervanger 1", size: "500 gram", price: "€ 2,19" },
-        { id: "s4", name: "Vervanger 3", price: "€ 1,79", wasPrice: "€ 1,99" },
-        { id: "s5", name: "Vervanger 4" },
+        { productId: "s2", name: "Vervanger 1", size: "500 gram", price: "€ 2,19" },
+        { productId: "s4", name: "Vervanger 3", price: "€ 1,79", wasPrice: "€ 1,99" },
+        { productId: "s5", name: "Vervanger 4" },
       ],
     });
     expect(json().items[0].price).toBeUndefined();
@@ -194,14 +204,18 @@ describe("createServer", () => {
     picnic.cart.getReplacements.mockImplementation(async (id: string) => replacementsOf(id));
     await connect(picnic);
 
-    const result = (await call("add_to_cart", { productId: "s1" })).json();
+    const result = (await call("add_to_cart", { items: [{ productId: "s1" }] })).json();
     expect(result.next).toMatch(/can't be delivered/);
-    expect(result.added).toMatchObject({
+    expect(result.added[0]).toMatchObject({
       productId: "s1",
       quantityInCart: 1,
       unavailable: "Niet leverbaar op dit moment",
     });
-    expect(result.added.replacements.map((p: { id: string }) => p.id)).toEqual(["s2", "s4", "s5"]);
+    expect(result.added[0].replacements.map((p: { productId: string }) => p.productId)).toEqual([
+      "s2",
+      "s4",
+      "s5",
+    ]);
   });
 
   it("adds no hint when the added product can be delivered", async () => {
@@ -209,9 +223,10 @@ describe("createServer", () => {
     picnic.cart.addProductToCart.mockResolvedValue(cart([line({ productId: "s1" })]));
     await connect(picnic);
 
-    const result = (await call("add_to_cart", { productId: "s1" })).json();
+    const result = (await call("add_to_cart", { items: [{ productId: "s1" }] })).json();
     expect(result.next).toBeUndefined();
-    expect(result.added).toEqual({ productId: "s1", name: "Product s1", quantityInCart: 1 });
+    expect(result.added).toEqual([{ productId: "s1", name: "Product s1", quantityInCart: 1 }]);
+    expect(result.failed).toBeUndefined();
   });
 
   it("reports a product that wasn't added", async () => {
@@ -219,7 +234,7 @@ describe("createServer", () => {
     picnic.cart.addProductToCart.mockResolvedValue(cart([]));
     await connect(picnic);
 
-    const result = await call("add_to_cart", { productId: "s9" });
+    const result = await call("add_to_cart", { items: [{ productId: "s9" }] });
     expect(result.isError).toBe(true);
     expect(picnic.cart.addProductToCart).toHaveBeenCalledWith("s9", 1);
   });
@@ -228,7 +243,7 @@ describe("createServer", () => {
     const picnic = mockPicnic();
     await connect(picnic);
 
-    const result = await call("add_to_cart", { productId: "toiletpapier" });
+    const result = await call("add_to_cart", { items: [{ productId: "toiletpapier" }] });
     expect(result.isError).toBe(true);
     expect(result.text).toMatch(/search_products/);
     expect(picnic.cart.addProductToCart).not.toHaveBeenCalled();
@@ -321,7 +336,7 @@ describe("product images", () => {
     );
     await connect(picnic);
 
-    expect((await call("add_to_cart", { productId: "s1" })).images()).toEqual({
+    expect((await call("add_to_cart", { items: [{ productId: "s1" }] })).images()).toEqual({
       s1: "https://images.example.com/img-1.png",
     });
   });

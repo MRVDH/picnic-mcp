@@ -26,7 +26,7 @@ const USAGE = `Usage:
   picnic-mcp login    Sign in to Picnic and print an auth key for PICNIC_AUTH_KEY.`;
 
 function parseCountryCode(value: string | undefined): CountryCode {
-  const code = (value ?? "NL").trim().toUpperCase();
+  const code = (value?.trim() || "NL").toUpperCase();
   if (!COUNTRY_CODES.includes(code as CountryCode)) {
     throw new Error(`Unknown country code "${value}". Use one of ${COUNTRY_CODES.join(", ")}.`);
   }

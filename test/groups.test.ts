@@ -6,7 +6,7 @@ import { parseToolGroups } from "../src/tools/groups.js";
 import { cart, line } from "./fixtures.js";
 import { call, connect, mockPicnic } from "./helpers.js";
 
-const ALL = ["cart", "slots", "product", "deliveries", "recipes"] as const;
+const ALL = ["cart", "slots", "product", "discover", "deliveries", "recipes"] as const;
 
 function slot(id: string, start: string, end: string, overrides = {}) {
   return {
@@ -172,7 +172,7 @@ describe("product", () => {
 
     const { text, json } = await call("get_product", { productId: "s1" });
     expect(json()).toEqual({
-      id: "s1",
+      productId: "s1",
       name: "Melk",
       brand: "Merk",
       size: "1 liter",
@@ -277,7 +277,10 @@ describe("deliveries", () => {
     });
     await connect(picnic, { tools: ["deliveries"] });
 
-    const { text, json } = await call("get_deliveries", { includeProducts: true });
+    const { text, json } = await call("get_deliveries", {
+      when: "upcoming",
+      includeProducts: true,
+    });
     expect(picnic.delivery.getDeliverySummaries).toHaveBeenCalledWith(["CURRENT"]);
     expect(json().deliveries).toEqual([
       {
@@ -298,7 +301,9 @@ describe("deliveries", () => {
     picnic.delivery.getDeliverySummaries.mockResolvedValue([]);
     await connect(picnic, { tools: ["deliveries"] });
 
-    expect((await call("get_deliveries")).json().next).toMatch(/no upcoming deliveries/);
+    expect((await call("get_deliveries", { when: "upcoming" })).json().next).toMatch(
+      /no upcoming deliveries/
+    );
     expect(picnic.delivery.getDeliveryPosition).not.toHaveBeenCalled();
   });
 
@@ -356,7 +361,7 @@ describe("cart errors", () => {
     );
     await connect(picnic);
 
-    expect((await call("add_to_cart", { productId: "s1" })).text).toMatch(
+    expect((await call("add_to_cart", { items: [{ productId: "s1" }] })).text).toMatch(
       /check get_cart before trying again/
     );
     expect((await call("remove_from_cart", { productId: "s1" })).text).toMatch(
@@ -376,7 +381,7 @@ describe("cart errors", () => {
     await connect(picnic);
 
     for (const [name, args] of [
-      ["add_to_cart", { productId: "s1" }],
+      ["add_to_cart", { items: [{ productId: "s1" }] }],
       ["remove_from_cart", { productId: "s1" }],
       ["get_cart", {}],
     ] as const) {
@@ -534,11 +539,50 @@ describe("recipes", () => {
     expect(picnic.recipe.addRecipeToCart).not.toHaveBeenCalled();
     expect(picnic.recipe.removeRecipeFromCart).not.toHaveBeenCalled();
   });
+
+  it("lists, saves and unsaves saved recipes", async () => {
+    const picnic = mockPicnic();
+    const id = "0123456789abcdef01234567";
+    picnic.recipe.getSavedRecipes.mockResolvedValue([
+      {
+        id,
+        name: "Pasta pesto",
+        imageType: null,
+        imageId: "recipes/image",
+        subtitle: "met spinazie",
+        tags: ["20 min"],
+        cookingTimeMinutes: 20,
+      },
+    ]);
+    picnic.recipe.saveRecipe.mockResolvedValue(undefined);
+    picnic.recipe.unsaveRecipe.mockResolvedValue(undefined);
+    await connect(picnic, { tools: ["recipes"] });
+
+    expect((await call("get_saved_recipes")).json()).toEqual({
+      recipes: [{ recipeId: id, name: "Pasta pesto", subtitle: "met spinazie", tags: ["20 min"] }],
+    });
+    expect((await call("save_recipe", { recipeId: id })).json()).toEqual({
+      saved: { recipeId: id },
+    });
+    expect(picnic.recipe.saveRecipe).toHaveBeenCalledWith(id);
+    expect((await call("unsave_recipe", { recipeId: id })).json()).toEqual({
+      unsaved: { recipeId: id },
+    });
+    expect(picnic.recipe.unsaveRecipe).toHaveBeenCalledWith(id);
+  });
+
+  it("says when there are no saved recipes", async () => {
+    const picnic = mockPicnic();
+    picnic.recipe.getSavedRecipes.mockResolvedValue([]);
+    await connect(picnic, { tools: ["recipes"] });
+
+    expect((await call("get_saved_recipes")).json().next).toMatch(/search_recipes/);
+  });
 });
 
 describe("all groups", () => {
-  it("registers 12 tools", async () => {
+  it("registers 18 tools", async () => {
     const client = await connect(mockPicnic(), { tools: [...ALL] });
-    expect((await client.listTools()).tools).toHaveLength(12);
+    expect((await client.listTools()).tools).toHaveLength(18);
   });
 });

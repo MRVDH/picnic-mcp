@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.MRVDH/picnic-mcp",
+  "title": "Picnic",
+  "description": "Search products, fill the cart and pick a delivery slot at the online supermarket Picnic",
+  "repository": {
+    "url": "https://github.com/MRVDH/picnic-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/MRVDH/picnic-mcp#readme",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "picnic-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PICNIC_AUTH_KEY",
+          "description": "The auth key of the Picnic account. Get one with `npx picnic-mcp login`.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "PICNIC_COUNTRY_CODE",
+          "description": "The country of the account: NL, DE or FR.",
+          "isRequired": false,
+          "default": "NL",
+          "choices": ["NL", "DE", "FR"]
+        },
+        {
+          "name": "PICNIC_MCP_TOOLS",
+          "description": "The tool groups to turn on, comma-separated, from cart, slots, product, discover, deliveries, recipes.",
+          "isRequired": false,
+          "default": "cart,slots,product,discover"
+        }
+      ]
+    }
+  ]
+}

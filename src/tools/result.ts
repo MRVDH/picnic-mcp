@@ -1,4 +1,4 @@
-import type { CallToolResult } from "@modelcontextprotocol/server";
+import type { CallToolResult, InputRequiredResult } from "@modelcontextprotocol/server";
 
 import { CART_MAY_HAVE_CHANGED, describeError, mayHaveChangedCart } from "../errors.js";
 
@@ -28,11 +28,11 @@ export function errorResult(message: string): CallToolResult {
  * the cart, the error says when the change may have gone through anyway, so the model checks the
  * cart instead of retrying blindly.
  */
-export async function runTool(
-  run: () => Promise<CallToolResult>,
+export async function runTool<T extends CallToolResult | InputRequiredResult>(
+  run: () => Promise<T>,
   onError: (error: unknown) => void,
   options: { changesCart?: boolean } = {}
-): Promise<CallToolResult> {
+): Promise<T | CallToolResult> {
   try {
     return await run();
   } catch (error) {

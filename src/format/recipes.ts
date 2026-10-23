@@ -41,7 +41,10 @@ export type RecipeOutput = {
   steps?: string[];
 };
 
-export function formatRecipeSummary(recipe: SearchRecipe): RecipeSummaryOutput {
+/** A recipe from search results or the saved recipes; both have these fields. */
+export function formatRecipeSummary(
+  recipe: Pick<SearchRecipe, "id" | "name" | "subtitle" | "tags">
+): RecipeSummaryOutput {
   return {
     recipeId: recipe.id,
     name: recipe.name,

@@ -27,7 +27,7 @@ export type CreateServerOptions = (
       countryCode?: CountryCode;
     }
 ) & {
-  /** The tool groups to turn on. Default: `["cart", "slots", "product"]`. */
+  /** The tool groups to turn on. Default: `["cart", "slots", "product", "discover"]`. */
   tools?: readonly ToolGroup[];
   /** Called with errors from Picnic before the tool returns a short message. Default: log to stderr. */
   onError?: (error: unknown) => void;

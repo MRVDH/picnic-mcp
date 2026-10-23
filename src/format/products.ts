@@ -3,7 +3,7 @@ import { formatPrice } from "./prices.js";
 
 /** A product as a tool shows it to a model. Optional fields are left out when empty. */
 export type ProductOutput = {
-  id: string;
+  productId: string;
   name: string;
   brand?: string;
   size?: string;
@@ -32,7 +32,7 @@ export function formatProduct(candidate: Candidate, countryCode: CountryCode): P
   const { tile } = candidate;
   const labels = tile.labels.map((label) => label.text).filter((text): text is string => !!text);
   return {
-    id: tile.id,
+    productId: tile.id,
     name: tile.namePrefix ? `${tile.namePrefix} ${tile.name}` : tile.name,
     ...(tile.brand && { brand: tile.brand }),
     ...(tile.unitQuantity && { size: tile.unitQuantity }),
