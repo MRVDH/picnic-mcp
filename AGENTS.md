@@ -60,7 +60,7 @@ server.json         # the MCP Registry entry; the registry workflow adds the rel
 - Tool names, inputs and output fields are stable within a major version: add tools, optional
   inputs and output fields in a minor version; rename or remove them only in a new major.
 - Run the evaluation after changing a description, a `next` hint or the default groups, and update
-  the results in the README.
+  the results in eval/README.md.
 
 ## Product matching
 
