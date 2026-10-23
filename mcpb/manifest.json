@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "picnic-mcp",
   "display_name": "Picnic",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "Search products, fill the cart and pick a delivery slot at the online supermarket Picnic.",
   "long_description": "Tools for your account at the online supermarket Picnic: search products, add them to the cart, change quantities, pick a delivery slot, read product details, see promotions and the products you usually buy, follow deliveries and use recipes. It never places an order.",
   "author": {

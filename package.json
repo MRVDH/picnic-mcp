@@ -1,7 +1,7 @@
 {
   "name": "picnic-mcp",
   "mcpName": "io.github.MRVDH/picnic-mcp",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "MCP server for the online supermarket Picnic: search products, fill the cart and pick a delivery slot",
   "keywords": [
     "picnic",
@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.3.1",
-    "picnic-api": "^5.2.0",
+    "picnic-api": "^5.3.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
