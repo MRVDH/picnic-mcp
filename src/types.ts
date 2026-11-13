@@ -7,6 +7,7 @@ export const COUNTRY_CODES: readonly CountryCode[] = ["NL", "DE", "FR"];
 export type SearchResults = PicnicClient.Types.catalog.SearchResults;
 export type ProductTile = PicnicClient.Types.catalog.ProductTile;
 export type ComparisonPrice = PicnicClient.Types.catalog.ComparisonPrice;
+export type CheaperAlternatives = PicnicClient.Types.catalog.CheaperAlternatives;
 export type SearchRecipe = PicnicClient.Types.catalog.SearchRecipe;
 export type Product = PicnicClient.Types.catalog.Product;
 export type Cart = PicnicClient.Types.cart.Cart;

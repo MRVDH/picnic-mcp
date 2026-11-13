@@ -64,6 +64,18 @@ export const RECIPE_ID = "0123456789abcdef01234567";
 
 const byId = (id: string) => PRODUCTS.find((candidate) => candidate.id === id);
 
+/** The price per kg or litre of a made-up product, for the sizes the fake uses ("600 gram", "1 liter"). */
+function perUnit(found: Product): { unit: "kg" | "l"; price: number; lowestPrice: null } | null {
+  const match = /^(\d+) (gram|liter)$/.exec(found.unitQuantity);
+  if (!match) return null;
+  const amount = match[2] === "gram" ? Number(match[1]) / 1000 : Number(match[1]);
+  return {
+    unit: match[2] === "gram" ? "kg" : "l",
+    price: Math.round(found.displayPrice / amount),
+    lowestPrice: null,
+  };
+}
+
 /** A timestamp in Picnic's time zone, `days` from today at `hour`:00. */
 function amsterdamTime(days: number, hour: number): string {
   const date = new Date(Date.now() + days * 86_400_000);
@@ -202,6 +214,37 @@ export function fakePicnic(initialCart: Record<string, number> = {}) {
           promotion: null,
           similarProducts: [],
         };
+      },
+      getCheaperAlternatives: async (id: string) => {
+        const found = byId(id);
+        if (!found) throw new PicnicClient.ProductNotFoundError(id);
+        const own = perUnit(found);
+        const alternatives = PRODUCTS.flatMap((candidate) => {
+          const price = perUnit(candidate);
+          const similar = candidate.searchTerms.some((term) => found.searchTerms.includes(term));
+          if (
+            !own ||
+            !price ||
+            !similar ||
+            candidate.id === id ||
+            price.unit !== own.unit ||
+            price.price >= own.price
+          )
+            return [];
+          return [
+            {
+              id: candidate.id,
+              name: candidate.name,
+              imageId: "",
+              displayPrice: candidate.displayPrice,
+              unitQuantity: candidate.unitQuantity,
+              maxCount: 50,
+              comparisonPrice: price,
+              savingPerUnit: own.price - price.price,
+            },
+          ];
+        });
+        return { productId: id, comparisonPrice: own, alternatives };
       },
       getImageUrl: (imageId: string) => `https://images.example.com/${imageId}.png`,
       getPromotions: async () => ({

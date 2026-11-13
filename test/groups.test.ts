@@ -137,6 +137,65 @@ describe("slots", () => {
 });
 
 describe("product", () => {
+  it("lists cheaper alternatives with their price per unit and saving", async () => {
+    const picnic = mockPicnic();
+    picnic.catalog.getCheaperAlternatives.mockResolvedValue({
+      productId: "s1",
+      comparisonPrice: { unit: "l", price: 126, lowestPrice: null },
+      alternatives: [
+        {
+          id: "s2",
+          name: "Melk groot",
+          imageId: "image-s2",
+          displayPrice: 149,
+          unitQuantity: "2 liter",
+          maxCount: 50,
+          comparisonPrice: { unit: "l", price: 75, lowestPrice: null },
+          savingPerUnit: 51,
+        },
+      ],
+    });
+    await connect(picnic);
+
+    const { json } = await call("get_cheaper_alternatives", { productId: "s1" });
+    expect(json()).toEqual({
+      productId: "s1",
+      unitPrice: "€ 1,26 per l",
+      alternatives: [
+        {
+          productId: "s2",
+          name: "Melk groot",
+          size: "2 liter",
+          price: "€ 1,49",
+          unitPrice: "€ 0,75 per l",
+          cheaperBy: "€ 0,51 per l",
+        },
+      ],
+      next: expect.stringMatching(/ask the user first/),
+    });
+  });
+
+  it("says when a product has nothing to compare by", async () => {
+    const picnic = mockPicnic();
+    picnic.catalog.getCheaperAlternatives.mockResolvedValue({
+      productId: "s1",
+      comparisonPrice: null,
+      alternatives: [],
+    });
+    await connect(picnic);
+
+    const result = (await call("get_cheaper_alternatives", { productId: "s1" })).json();
+    expect(result.alternatives).toEqual([]);
+    expect(result.next).toMatch(/nothing to compare/);
+  });
+
+  it("rejects a product name for get_cheaper_alternatives without calling Picnic", async () => {
+    const picnic = mockPicnic();
+    await connect(picnic);
+    expect((await call("get_cheaper_alternatives", { productId: "melk" })).isError).toBe(true);
+    expect(picnic.catalog.getCheaperAlternatives).not.toHaveBeenCalled();
+  });
+
   it("returns the details without images, colors or similar products", async () => {
     const picnic = mockPicnic();
     picnic.catalog.getProduct.mockResolvedValue({
@@ -581,8 +640,8 @@ describe("recipes", () => {
 });
 
 describe("all groups", () => {
-  it("registers 18 tools", async () => {
+  it("registers 19 tools", async () => {
     const client = await connect(mockPicnic(), { tools: [...ALL] });
-    expect((await client.listTools()).tools).toHaveLength(18);
+    expect((await client.listTools()).tools).toHaveLength(19);
   });
 });

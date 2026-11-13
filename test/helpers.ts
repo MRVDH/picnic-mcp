@@ -10,6 +10,7 @@ export function mockPicnic() {
     catalog: {
       getSearchResults: vi.fn(),
       getProduct: vi.fn(),
+      getCheaperAlternatives: vi.fn(),
       getImageUrl: vi.fn((imageId: string) => `https://images.example.com/${imageId}.png`),
       getPromotions: vi.fn(),
       getPromotionGroup: vi.fn(),
