@@ -1,4 +1,4 @@
-import type { CountryCode } from "../types.js";
+import type { ComparisonPrice, CountryCode } from "../types.js";
 
 const LOCALES: Record<CountryCode, string> = { NL: "nl-NL", DE: "de-DE", FR: "fr-FR" };
 
@@ -24,6 +24,11 @@ export function formatPrice(cents: number, countryCode: CountryCode): string {
   return new Intl.NumberFormat(LOCALES[countryCode], { style: "currency", currency: "EUR" })
     .format(cents / 100)
     .replace(/\s/g, " "); // Intl uses non-breaking spaces
+}
+
+/** Formats a price per kg, litre or piece, e.g. "€ 14,98 per kg" for NL. */
+export function formatComparisonPrice(price: ComparisonPrice, countryCode: CountryCode): string {
+  return `${formatPrice(price.price, countryCode)} per ${price.unit}`;
 }
 
 /** The date of a timestamp in Picnic's time zone, e.g. "2026-10-23". */
