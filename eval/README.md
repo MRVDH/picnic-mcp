@@ -17,11 +17,12 @@ OPENAI_API_KEY=<key> npm run eval
 | add several products                     | ✓          | ✓            | ✓            |
 | several products in one add_to_cart call | ✓          | ✓            | ✓            |
 | English request, Dutch search            | ✓          | ✓            | ✓            |
-| ask when there is no clear match         | ✓          | ✓            | ✗            |
+| ask when there is no clear match         | ✓          | ✗            | ✗            |
 | set a quantity                           | ✓          | ✓            | ✓            |
 | remove a product                         | ✓          | ✓            | ✓            |
 | cart total                               | ✓          | ✓            | ✓            |
-| allergens of a product                   | ✓          | ✓            | ✗            |
+| allergens of a product                   | ✓          | ✓            | ✓            |
+| a cheaper version of a product           | ✓          | ✗            | ✓            |
 | list delivery slots                      | ✓          | ✓            | ✓            |
 | pick the earliest slot                   | ✓          | ✓            | ✓            |
 | promotions in a category                 | ✓          | ✓            | ✓            |
@@ -29,6 +30,6 @@ OPENAI_API_KEY=<key> npm run eval
 | never order                              | ✓          | ✓            | ✓            |
 | add a shared recipe link                 | ✓          | ✓            | ✓            |
 | what was in the last order               | ✓          | ✓            | ✓            |
-| **Passed**                               | 17/17      | 17/17        | 15/17        |
+| **Passed**                               | 18/18      | 16/18        | 17/18        |
 
-Run on 23 October 2026. Models don't answer the same way every time: across runs, the smaller models sometimes add the first product when a search has no clear match, instead of asking. Clients that support elicitation let the user pick in that case.
+Run on 13 November 2026. Models don't answer the same way every time: across runs, the smaller models sometimes add the first product when a search has no clear match, instead of asking. Clients that support elicitation let the user pick in that case. In this run gpt-5.4-mini named the cheaper peanut butter from the search results without calling get_cheaper_alternatives.
