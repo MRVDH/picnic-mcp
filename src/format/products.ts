@@ -1,5 +1,5 @@
 import type { CountryCode, ProductTile } from "../types.js";
-import { formatPrice } from "./prices.js";
+import { formatComparisonPrice, formatPrice } from "./prices.js";
 
 /** A product as a tool shows it to a model. Optional fields are left out when empty. */
 export type ProductOutput = {
@@ -10,6 +10,7 @@ export type ProductOutput = {
   price: string;
   /** The price before a discount. */
   wasPrice?: string;
+  /** The price per kg, litre or piece, to compare package sizes. */
   unitPrice?: string;
   /** Promotion and other labels, e.g. "1+1 gratis". */
   labels?: string[];
@@ -31,6 +32,10 @@ export type Candidate = {
 export function formatProduct(candidate: Candidate, countryCode: CountryCode): ProductOutput {
   const { tile } = candidate;
   const labels = tile.labels.map((label) => label.text).filter((text): text is string => !!text);
+  // Picnic sends no unit price on tiles; picnic-api computes one from the package size.
+  const unitPrice =
+    tile.unitPrice ??
+    (tile.comparisonPrice && formatComparisonPrice(tile.comparisonPrice, countryCode));
   return {
     productId: tile.id,
     name: tile.namePrefix ? `${tile.namePrefix} ${tile.name}` : tile.name,
@@ -41,7 +46,7 @@ export function formatProduct(candidate: Candidate, countryCode: CountryCode): P
       tile.originalPrice > tile.displayPrice && {
         wasPrice: formatPrice(tile.originalPrice, countryCode),
       }),
-    ...(tile.unitPrice && { unitPrice: tile.unitPrice }),
+    ...(unitPrice && { unitPrice }),
     ...(labels.length > 0 && { labels }),
     ...(candidate.boughtBefore && { boughtBefore: true }),
     ...(tile.isUnavailable && { unavailable: true }),

@@ -107,13 +107,26 @@ describe("createServer", () => {
   it("returns choices when there is no clear match", async () => {
     const picnic = mockPicnic();
     picnic.catalog.getSearchResults.mockResolvedValue(
-      searchResults([], [tile({ id: "s1" }), tile({ id: "s2" })], "melk")
+      searchResults(
+        [],
+        [
+          tile({
+            id: "s1",
+            unitQuantity: "1.5 liter",
+            comparisonPrice: { unit: "l", price: 126, lowestPrice: null },
+          }),
+          tile({ id: "s2" }),
+        ],
+        "melk"
+      )
     );
     await connect(picnic);
 
     const result = (await call("search_products", { query: "mlek" })).json();
     expect(result.searchedFor).toBe("melk");
     expect(result.choices.map((p: { productId: string }) => p.productId)).toEqual(["s1", "s2"]);
+    expect(result.choices[0].unitPrice).toBe("€ 1,26 per l");
+    expect(result.choices[1].unitPrice).toBeUndefined();
     expect(result.bestMatch).toBeUndefined();
     expect(result.next).toMatch(/ask the user/i);
   });
