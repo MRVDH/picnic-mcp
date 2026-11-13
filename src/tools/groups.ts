@@ -34,7 +34,8 @@ const GROUPS: Record<ToolGroup, GroupDefinition> = {
   },
   product: {
     register: registerProductTools,
-    instructions: () => "For a product's ingredients, allergens or nutrition: get_product.",
+    instructions: () =>
+      "For a product's ingredients, allergens or nutrition: get_product. For a cheaper version of a product: get_cheaper_alternatives.",
   },
   discover: {
     register: registerDiscoverTools,

@@ -43,6 +43,7 @@ describe("createServer", () => {
     expect(tools.map((t) => t.name).sort()).toEqual([
       "add_to_cart",
       "get_cart",
+      "get_cheaper_alternatives",
       "get_delivery_slots",
       "get_favorites",
       "get_product",
@@ -55,6 +56,7 @@ describe("createServer", () => {
     const readOnly = tools.filter((t) => t.annotations?.readOnlyHint).map((t) => t.name);
     expect(readOnly.sort()).toEqual([
       "get_cart",
+      "get_cheaper_alternatives",
       "get_delivery_slots",
       "get_favorites",
       "get_product",

@@ -130,6 +130,16 @@ export const CASES: Case[] = [
       ),
   },
   {
+    id: "a cheaper version of a product",
+    message: "Is er een goedkopere pindakaas dan Pindakaas met stukjes?",
+    check: (o) =>
+      first(
+        needs(o, "get_cheaper_alternatives"),
+        unchanged(o),
+        /naturel/i.test(o.text) ? null : "the answer doesn't name the cheaper peanut butter"
+      ),
+  },
+  {
     id: "list delivery slots",
     message: "Welke bezorgmomenten zijn er?",
     check: (o) => first(needs(o, "get_delivery_slots"), unchanged(o)),

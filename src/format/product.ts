@@ -1,5 +1,5 @@
 import type { CountryCode, Product } from "../types.js";
-import { formatPrice } from "./prices.js";
+import { formatComparisonPrice, formatPrice } from "./prices.js";
 
 /** Long texts are cut at this many characters, to keep the output short. */
 const MAX_TEXT = 1500;
@@ -30,6 +30,10 @@ export function formatProductDetails(
   product: Product,
   countryCode: CountryCode
 ): ProductDetailsOutput {
+  // Picnic's own unit price, or picnic-api's price per kg, litre or piece when the page has none.
+  const unitPrice =
+    product.unitPrice ??
+    (product.comparisonPrice && formatComparisonPrice(product.comparisonPrice, countryCode));
   const labels = [...product.quantityBadges, ...product.labels, ...product.tags]
     .map((label) => label.text)
     .filter(Boolean);
@@ -58,7 +62,7 @@ export function formatProductDetails(
       product.originalPrice > product.displayPrice && {
         wasPrice: formatPrice(product.originalPrice, countryCode),
       }),
-    ...(product.unitPrice && { unitPrice: product.unitPrice }),
+    ...(unitPrice && { unitPrice }),
     ...(product.promotion && { promotion: product.promotion.label }),
     ...(labels.length > 0 && { labels }),
     ...(product.description && { description: cut(product.description) }),
