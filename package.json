@@ -1,7 +1,7 @@
 {
   "name": "picnic-mcp",
   "mcpName": "io.github.MRVDH/picnic-mcp",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "MCP server for the online supermarket Picnic: search products, fill the cart and pick a delivery slot",
   "keywords": [
     "picnic",
